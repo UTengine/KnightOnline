@@ -199,6 +199,9 @@ bool CN3FXPartBottomBoard::Load(HANDLE hFile)
 		ReadFile(hFile, &m_fGap, sizeof(float), &dwRWC, NULL);
 	}
 
+	if (m_iVersion>=2) ReadFile(hFile, &m_bNew_Uv, sizeof(bool), &dwRWC, NULL); // implement m_bNew_Uv?
+	if (m_iVersion>=3) ReadFile(hFile, &m_bHdr_uv, sizeof(bool), &dwRWC, NULL); // implement m_bHdr_uv?
+
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.
 #if defined(_DEBUG)
