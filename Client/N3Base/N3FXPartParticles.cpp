@@ -437,6 +437,27 @@ bool CN3FXPartParticles::Load(HANDLE hFile)
 		ReadFile(hFile, &m_fScaleVelY, sizeof(float), &dwRWC, NULL);
 	}
 
+	if (m_iVersion>=6) ReadFile(hFile, &m_bDistanceNumFix, sizeof(bool), &dwRWC, NULL); // implement m_bDistanceNumFix?
+	if (m_iVersion>=7) ReadFile(hFile, &m_bParticleYAxisFix, sizeof(bool), &dwRWC, NULL); // implement m_bParticleYAxisFix?
+	if (m_iVersion>=8)
+	{
+		ReadFile(hFile, &m_bParticle_Not_Rotate, sizeof(bool), &dwRWC, NULL); // implement m_bParticle_Not_Rot?
+		ReadFile(hFile, &m_vParticle_Not_Rotate_Axis, sizeof(__Vector3), &dwRWC, NULL); // implement m_vParticle_Not_Rot?
+		ReadFile(hFile, &m_fPtRangeMin, sizeof(float), &dwRWC, NULL); // implement m_fPtRangeMin?
+		ReadFile(hFile, &m_fPtRangeMax, sizeof(float), &dwRWC, NULL); // implement m_fPtRangeMax?
+	}
+	if (m_iVersion>=10)
+	{
+		char skip5byteshackery[5];
+		ReadFile(hFile, skip5byteshackery, 5, &dwRWC, NULL);
+	}
+
+	if (m_iVersion>=11)
+	{
+		char skip12byteshackery[12];
+		ReadFile(hFile, skip12byteshackery, 12, &dwRWC, NULL);
+	}
+
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.
 #if defined(_DEBUG)

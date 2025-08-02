@@ -444,7 +444,7 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 	ReadFile(hFile, &m_fLife, sizeof(float), &dwRWC, NULL);
 	if(m_fLife > 10.0f) m_fLife = 10.0f;
 
-	if (m_iBaseVersion >= 3)
+	if (m_iBaseVersion>=3)
 	{
 		int iIDK0, iIDK1;
 		ReadFile(hFile, &iIDK0, sizeof(int), &dwRWC, NULL);
@@ -495,6 +495,12 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 		else m_dwLight = TRUE;
 		if(m_dwRenderFlag & RF_ALPHABLENDING) m_bAlpha = TRUE;
 		else m_bAlpha = FALSE;		
+	}
+
+	if (m_iBaseVersion>=4)
+	{
+		char strIDK0[MAX_PATH];
+		ReadFile(hFile, strIDK0, MAX_PATH, &dwRWC, NULL); // implement shape_hdrname ?
 	}
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run

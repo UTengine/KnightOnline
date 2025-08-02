@@ -209,6 +209,18 @@ bool CN3FXPartBillBoard::Load(HANDLE hFile)
 	}
 
 	if(m_iVersion>=5) ReadFile(hFile, &m_mtxRot, sizeof(m_mtxRot), &dwRWC, NULL);
+	if (m_iVersion>=6) ReadFile(hFile, &m_bRotationRate, sizeof(bool), &dwRWC, NULL); // implement m_bRotationRate?
+	if (m_iVersion>=7) ReadFile(hFile, &m_bOnScreen, sizeof(bool), &dwRWC, NULL); // implement m_bOnScreen?
+	if (m_iVersion>=8)
+	{
+		char skipBuffer[13];
+		ReadFile(hFile, skipBuffer, sizeof(skipBuffer), &dwRWC, NULL);
+	}
+	if (m_iVersion>=9)
+	{
+		char skipBuffer12[12];
+		ReadFile(hFile, skipBuffer12, sizeof(skipBuffer12), &dwRWC, NULL);
+	}
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.
