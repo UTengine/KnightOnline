@@ -218,7 +218,10 @@ void CGameProcCharacterSelect::Init()
 	if (s_bIsRestarting)
 		MsgSend_VersionCheck();
 	else
+	{
 		MsgSend_RequestAllCharacterInfo(); // 캐릭터 정보 요청..
+		m_pSnd_Rotate->Play(); m_pSnd_Rotate->Stop();
+	}
 }
 
 void CGameProcCharacterSelect::Tick()
