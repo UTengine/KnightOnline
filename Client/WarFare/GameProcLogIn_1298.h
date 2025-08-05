@@ -11,6 +11,7 @@ public:
 	
 	bool			m_bLogIn; // 로그인 중복 방지..
 	std::string		m_szRegistrationSite;
+	float fTmp; // Temp for bgm kicking in // TODO some realistic implementation
 
 public:
 	void	MsgRecv_GameServerGroupList(Packet& pkt);

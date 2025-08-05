@@ -45,21 +45,159 @@ CN3SndObj* CN3SndMgr::CreateObj(int iID, e_SndType eType)
 	return this->CreateObj(pTbl->szFN, eType);
 }
 
+void CN3SndMgr::CleanupTempFiles()
+{
+	for(const auto& path : m_TempFilePaths)
+	{
+		remove(path.c_str());
+	}
+	m_TempFilePaths.clear();
+}
+
+// Helper to check if the file is an MP3
+bool IsMP3File(const std::string& szFN)
+{
+	if(szFN.length() < 4) return false;
+	return (_stricmp(szFN.substr(szFN.length() - 4).c_str(), ".mp3") == 0);
+}
+
+// MP3 decoding function
+bool DecodeMP3ToFile(const std::string& szMP3Path, std::string& szWAVPath)
+{
+	mpg123_handle* mh;
+	unsigned char* buffer;
+	size_t buffer_size;
+	size_t done;
+	int err;
+
+	int channels, encoding;
+	long rate;
+
+	// Create a temporary file path
+	char tempPath[MAX_PATH];
+	GetTempPath(MAX_PATH, tempPath);
+	char tempFile[MAX_PATH];
+	GetTempFileName(tempPath, "wav", 0, tempFile);
+	szWAVPath = tempFile;
+
+	FILE* wavFile = fopen(szWAVPath.c_str(), "wb");
+	if(!wavFile)
+		return false;
+
+	/* initializations */
+	mpg123_init();
+	mh = mpg123_new(NULL, &err);
+	if(mh == NULL)
+	{
+		fprintf(stderr, "Error initializing mpg123: %s\n", mpg123_plain_strerror(err));
+		fclose(wavFile);
+		return false;
+	}
+
+	/* open the file and get the decoding format */
+	if(mpg123_open(mh, szMP3Path.c_str()) != MPG123_OK)
+	{
+		fprintf(stderr, "Error opening file: %s\n", mpg123_strerror(mh));
+		mpg123_delete(mh);
+		fclose(wavFile);
+		return false;
+	}
+
+	if(mpg123_getformat(mh, &rate, &channels, &encoding) != MPG123_OK)
+	{
+		fprintf(stderr, "Error getting format: %s\n", mpg123_strerror(mh));
+		mpg123_delete(mh);
+		fclose(wavFile);
+		return false;
+	}
+
+	// Write WAV header
+	short bits = mpg123_encsize(encoding) * 8;
+	short block_align = (bits / 8) * channels;
+	int byte_rate = rate * block_align;
+	int data_size = 0;
+
+	// RIFF chunk
+	fwrite("RIFF", 1, 4, wavFile);
+	int riff_size = 0; // Placeholder
+	fwrite(&riff_size, 4, 1, wavFile);
+	fwrite("WAVE", 1, 4, wavFile);
+
+	// fmt chunk
+	fwrite("fmt ", 1, 4, wavFile);
+	int fmt_size = 16;
+	fwrite(&fmt_size, 4, 1, wavFile);
+	short audio_format = 1; // PCM
+	fwrite(&audio_format, 2, 1, wavFile);
+	fwrite(&channels, 2, 1, wavFile);
+	fwrite(&rate, 4, 1, wavFile);
+	fwrite(&byte_rate, 4, 1, wavFile);
+	fwrite(&block_align, 2, 1, wavFile);
+	fwrite(&bits, 2, 1, wavFile);
+
+	// data chunk
+	fwrite("data", 1, 4, wavFile);
+	fwrite(&data_size, 4, 1, wavFile); // Placeholder
+
+	buffer_size = mpg123_outblock(mh);
+	buffer = (unsigned char*)malloc(buffer_size * sizeof(unsigned char));
+
+	/* decode and write to WAV */
+	while(mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK)
+	{
+		fwrite(buffer, 1, done, wavFile);
+		data_size += done;
+	}
+
+	// Go back and fill in the size fields in the header
+	fseek(wavFile, 4, SEEK_SET);
+	riff_size = data_size + 36;
+	fwrite(&riff_size, 4, 1, wavFile);
+	fseek(wavFile, 40, SEEK_SET);
+	fwrite(&data_size, 4, 1, wavFile);
+
+	/* clean up */
+	free(buffer);
+	fclose(wavFile);
+	mpg123_close(mh);
+	mpg123_delete(mh);
+	mpg123_exit();
+
+	return true;
+}
+
 CN3SndObj* CN3SndMgr::CreateObj(const std::string& szFN, e_SndType eType)
 {
 	if(!m_bSndEnable) return NULL;
 
+	std::string finalPath = szFN;
+	bool isMP3 = IsMP3File(szFN);
+	if(isMP3)
+	{
+		std::string wavPath;
+		if (DecodeMP3ToFile(szFN, wavPath))
+		{
+			finalPath = wavPath;
+			m_TempFilePaths.push_back(wavPath);
+		}
+		else
+		{
+			// Handle decoding failure, maybe log an error
+			return NULL;
+		}
+	}
+
 	CN3SndObj* pObjSrc = NULL;
-	itm_Snd it = m_SndObjSrcs.find(szFN);
+	itm_Snd it = m_SndObjSrcs.find(finalPath);
 	if(it == m_SndObjSrcs.end()) // 못 찾았다... 새로 만들자..
 	{
 		pObjSrc = new CN3SndObj();
-		if(false == pObjSrc->Create(szFN, eType)) // 새로 로딩..
+		if(false == pObjSrc->Create(finalPath, eType)) // 새로 로딩..
 		{
 			delete pObjSrc; pObjSrc = NULL;
 			return NULL;
 		}
-		m_SndObjSrcs.insert(val_Snd(szFN, pObjSrc)); // 맵에 추가한다..
+		m_SndObjSrcs.insert(val_Snd(finalPath, pObjSrc)); // 맵에 추가한다..
 	}
 	else pObjSrc = it->second;
 
@@ -73,15 +211,34 @@ CN3SndObj* CN3SndMgr::CreateObj(const std::string& szFN, e_SndType eType)
 		delete pObjNew; pObjNew = NULL;
 		return NULL;
 	}
-	
 	if(pObjNew) m_SndObjs_Duplicated.push_back(pObjNew); // 리스트에 넣는다...
 	return pObjNew;
 }
 
 CN3SndObjStream* CN3SndMgr::CreateStreamObj(const std::string& szFN)
 {
+	if(!m_bSndEnable) return NULL;
+
+	std::string finalPath = szFN;
+	bool isMP3 = IsMP3File(szFN);
+	if(isMP3)
+	{
+		std::string fullpath = CN3Base::PathGet();
+		std::string wavPath;
+		if(DecodeMP3ToFile(fullpath+szFN, wavPath))
+		{
+			finalPath = wavPath;
+			m_TempFilePaths.push_back(wavPath);
+		}
+		else
+		{
+			// Handle decoding failure
+			return NULL;
+		}
+	}
+
 	CN3SndObjStream* pObj = new CN3SndObjStream();
-	if(false == pObj->Create(szFN))
+	if(false == pObj->Create(finalPath))
 	{
 		delete pObj; pObj = NULL;
 		return NULL;
@@ -297,6 +454,7 @@ void CN3SndMgr::Release()
 	}
 	m_SndObjStreams.clear();
 
+	CleanupTempFiles();
 	CN3SndObj::StaticRelease();
 }
 

@@ -13,6 +13,7 @@
 
 #include "N3SndDef.h"
 #include "N3TableBase.h"
+#include "..\deps\mpg123\include\mpg123.h"
 
 #include <list>
 #include <map>
@@ -36,7 +37,10 @@ protected:
 	std::list<CN3SndObjStream*>			m_SndObjStreams;	// 스트리밍 사운드..
 	std::list<CN3SndObj*>				m_SndObjs_Duplicated;
 	std::list<CN3SndObj*>				m_SndObjs_PlayOnceAndRelease;	// 한번만 플레이 하고 릴리즈 해야 하는 사운드들
-	
+	std::vector<std::string>			m_TempFilePaths; // For MP3 decoding
+
+	void CleanupTempFiles(); // For MP3 decoding
+
 public:
 	void		ReleaseObj(CN3SndObj** ppObj);
 	void		ReleaseStreamObj(CN3SndObjStream** ppObj);

@@ -270,6 +270,18 @@
     <ClInclude Include="N3GlobalEffectMng.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\deps\mpg123\include\fmt123.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\deps\mpg123\include\mpg123.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\deps\mpg123\include\out123.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\deps\mpg123\include\syn123.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="N3Eng.cpp">

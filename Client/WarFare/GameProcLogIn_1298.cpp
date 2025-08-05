@@ -74,9 +74,9 @@ void CGameProcLogIn_1298::Init()
 	m_pUILogIn->PositionGroups();
 
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
-
-	std::string szFN = "Snd\\Intro_Sound.mp3";
-	s_pSnd_BGM = s_SndMgr.CreateStreamObj(szFN);
+	s_pSnd_BGM = s_SndMgr.CreateStreamObj("snd\\intro_sound.mp3");
+	s_pSnd_BGM->Looping(true);
+	fTmp = 0; // enabling/play the bgm music
 
 	s_pUIMgr->SetFocusedUI(m_pUILogIn);
 
@@ -139,20 +139,32 @@ void CGameProcLogIn_1298::Tick() // 프로시져 인덱스를 리턴한다. 0 �
 {
 	CGameProcedure::Tick();	// 키, 마우스 입력 등등..
 
-	static float fTmp = 0;
+
 	if (fTmp == 0)
 	{
 		if (s_pSnd_BGM != nullptr)
-			s_pSnd_BGM->Play(); // 음악 시작..
+		{
+			s_pSnd_BGM->Play(0,0,2.5F,false); // 음악 시작.. // did 2.5F fade in some realtek or audio chips have crackling at the start
+		}
+		fTmp = 1.0f;
 	}
 
-	fTmp += CN3Base::s_fSecPerFrm;
-	if(fTmp > 191.0f)
-	{
-		fTmp = 0;
-		if (s_pSnd_BGM != nullptr)
-			s_pSnd_BGM->Stop();
-	}
+	// TODO: Remove this code if not needed
+	
+	//static float fTmp = 0;
+	//if (fTmp == 0)
+	//{
+	//	if (s_pSnd_BGM != nullptr)
+	//		s_pSnd_BGM->Play(); // 음악 시작..
+	//}
+
+	//fTmp += CN3Base::s_fSecPerFrm;
+	//if(fTmp > 191.0f)
+	//{
+	//	fTmp = 0;
+	//	if (s_pSnd_BGM != nullptr)
+	//		s_pSnd_BGM->Stop();
+	//}
 }
 
 void CGameProcLogIn_1298::Render()

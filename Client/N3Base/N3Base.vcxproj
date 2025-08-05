@@ -43,6 +43,10 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\deps\mpg123\include\fmt123.h" />
+    <ClInclude Include="..\..\deps\mpg123\include\mpg123.h" />
+    <ClInclude Include="..\..\deps\mpg123\include\out123.h" />
+    <ClInclude Include="..\..\deps\mpg123\include\syn123.h" />
     <ClInclude Include="AVIPlayer.h" />
     <ClInclude Include="BitMapFile.h" />
     <ClInclude Include="DFont.h" />
