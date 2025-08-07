@@ -186,21 +186,21 @@ bool CN3FXPartBottomBoard::Load(HANDLE hFile)
 
 	DWORD dwRWC = 0;
 
-	ReadFile(hFile, &m_fSizeX, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fSizeZ, sizeof(float), &dwRWC, NULL);
+	ReadFile(hFile, &m_fSizeX, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fSizeZ, sizeof(float), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_fScaleVelX, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fScaleVelZ, sizeof(float), &dwRWC, NULL);
+	ReadFile(hFile, &m_fScaleVelX, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fScaleVelZ, sizeof(float), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, NULL);
+	ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, nullptr);
 
 	if(m_iVersion>=1)
 	{
-		ReadFile(hFile, &m_fGap, sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &m_fGap, sizeof(float), &dwRWC, nullptr);
 	}
 
-	if (m_iVersion>=2) ReadFile(hFile, &m_bNew_Uv, sizeof(bool), &dwRWC, NULL); // implement m_bNew_Uv?
-	if (m_iVersion>=3) ReadFile(hFile, &m_bHdr_uv, sizeof(bool), &dwRWC, NULL); // implement m_bHdr_uv?
+	if (m_iVersion>=2) ReadFile(hFile, &m_bNew_Uv, sizeof(bool), &dwRWC, nullptr); // implement m_bNew_Uv?
+	if (m_iVersion>=3) ReadFile(hFile, &m_bHdr_uv, sizeof(bool), &dwRWC, nullptr); // implement m_bHdr_uv?
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.

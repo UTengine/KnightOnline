@@ -359,64 +359,64 @@ bool CN3FXPartParticles::Load(HANDLE hFile)
 	if(m_iVersion<3) return false;
 
 	DWORD dwRWC = 0;
-	ReadFile(hFile, &m_iNumParticle, sizeof(int), &dwRWC, NULL);
+	ReadFile(hFile, &m_iNumParticle, sizeof(int), &dwRWC, nullptr);
 	if(m_iNumParticle>0) InitVB();
 
 	if(m_iVersion<4)
 	{
 		float ParticleSize;
-		ReadFile(hFile, &ParticleSize, sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &ParticleSize, sizeof(float), &dwRWC, nullptr);
 		m_pair_fParticleSize.first = m_pair_fParticleSize.second = ParticleSize;
 	}
 	else
 	{
-		ReadFile(hFile, &(m_pair_fParticleSize.first), sizeof(float), &dwRWC, NULL);
-		ReadFile(hFile, &(m_pair_fParticleSize.second), sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &(m_pair_fParticleSize.first), sizeof(float), &dwRWC, nullptr);
+		ReadFile(hFile, &(m_pair_fParticleSize.second), sizeof(float), &dwRWC, nullptr);
 	}
 
-	ReadFile(hFile, &(m_pair_fParticleLife.first), sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &(m_pair_fParticleLife.second), sizeof(float), &dwRWC, NULL);
+	ReadFile(hFile, &(m_pair_fParticleLife.first), sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &(m_pair_fParticleLife.second), sizeof(float), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_MinCreateRange, sizeof(__Vector3), &dwRWC, NULL);
-	ReadFile(hFile, &m_MaxCreateRange, sizeof(__Vector3), &dwRWC, NULL);
+	ReadFile(hFile, &m_MinCreateRange, sizeof(__Vector3), &dwRWC, nullptr);
+	ReadFile(hFile, &m_MaxCreateRange, sizeof(__Vector3), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_fCreateDelay, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_iNumCreate, sizeof(int), &dwRWC, NULL);
+	ReadFile(hFile, &m_fCreateDelay, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_iNumCreate, sizeof(int), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_dwEmitType, sizeof(uint32_t), &dwRWC, NULL);
+	ReadFile(hFile, &m_dwEmitType, sizeof(uint32_t), &dwRWC, nullptr);
 
 	if(	m_dwEmitType == FX_PART_PARTICLE_EMIT_TYPE_SPREAD )
 	{
-		ReadFile(hFile, &(m_uEmitCon.fEmitAngle), sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &(m_uEmitCon.fEmitAngle), sizeof(float), &dwRWC, nullptr);
 	}
 	else if( m_dwEmitType == FX_PART_PARTICLE_EMIT_TYPE_GATHER )
 	{
-		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.x), sizeof(float), &dwRWC, NULL);
-		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.y), sizeof(float), &dwRWC, NULL);
-		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.z), sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.x), sizeof(float), &dwRWC, nullptr);
+		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.y), sizeof(float), &dwRWC, nullptr);
+		ReadFile(hFile, &(m_uEmitCon.vGatherPoint.z), sizeof(float), &dwRWC, nullptr);
 	}
 
-	ReadFile(hFile, &m_vPtEmitDir, sizeof(__Vector3), &dwRWC, NULL);
-	ReadFile(hFile, &m_fPtVelocity, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fPtAccel, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fPtRotVelocity, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fPtGravity, sizeof(float), &dwRWC, NULL);
+	ReadFile(hFile, &m_vPtEmitDir, sizeof(__Vector3), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fPtVelocity, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fPtAccel, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fPtRotVelocity, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fPtGravity, sizeof(float), &dwRWC, nullptr);
 
-	ReadFile(hFile, &m_bChangeColor, sizeof(bool), &dwRWC, NULL);
+	ReadFile(hFile, &m_bChangeColor, sizeof(bool), &dwRWC, nullptr);
 	if(m_bChangeColor)
 	{
 		int iNumKeyColor = 0;
-		ReadFile(hFile, &iNumKeyColor, sizeof(int), &dwRWC, NULL);
-		ReadFile(hFile, &m_dwChangeColor, sizeof(uint32_t)*iNumKeyColor, &dwRWC, NULL);
+		ReadFile(hFile, &iNumKeyColor, sizeof(int), &dwRWC, nullptr);
+		ReadFile(hFile, &m_dwChangeColor, sizeof(uint32_t)*iNumKeyColor, &dwRWC, nullptr);
 	}
 
-	ReadFile(hFile, &m_bAnimKey, sizeof(bool), &dwRWC, NULL);
+	ReadFile(hFile, &m_bAnimKey, sizeof(bool), &dwRWC, nullptr);
 	if(m_bAnimKey)
 	{
-		ReadFile(hFile, &m_fMeshFPS, sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &m_fMeshFPS, sizeof(float), &dwRWC, nullptr);
 
 		char szShapeFileName[_MAX_PATH];
-		ReadFile(hFile, szShapeFileName, _MAX_PATH, &dwRWC, NULL);
+		ReadFile(hFile, szShapeFileName, _MAX_PATH, &dwRWC, nullptr);
 
 		if(m_pShape)
 		{
@@ -432,30 +432,30 @@ bool CN3FXPartParticles::Load(HANDLE hFile)
 
 	if(m_iVersion>=5)
 	{
-		ReadFile(hFile, &m_fTexRotateVelocity, sizeof(float), &dwRWC, NULL);
-		ReadFile(hFile, &m_fScaleVelX, sizeof(float), &dwRWC, NULL);
-		ReadFile(hFile, &m_fScaleVelY, sizeof(float), &dwRWC, NULL);
+		ReadFile(hFile, &m_fTexRotateVelocity, sizeof(float), &dwRWC, nullptr);
+		ReadFile(hFile, &m_fScaleVelX, sizeof(float), &dwRWC, nullptr);
+		ReadFile(hFile, &m_fScaleVelY, sizeof(float), &dwRWC, nullptr);
 	}
 
-	if (m_iVersion>=6) ReadFile(hFile, &m_bDistanceNumFix, sizeof(bool), &dwRWC, NULL); // implement m_bDistanceNumFix?
-	if (m_iVersion>=7) ReadFile(hFile, &m_bParticleYAxisFix, sizeof(bool), &dwRWC, NULL); // implement m_bParticleYAxisFix?
+	if (m_iVersion>=6) ReadFile(hFile, &m_bDistanceNumFix, sizeof(bool), &dwRWC, nullptr); // implement m_bDistanceNumFix?
+	if (m_iVersion>=7) ReadFile(hFile, &m_bParticleYAxisFix, sizeof(bool), &dwRWC, nullptr); // implement m_bParticleYAxisFix?
 	if (m_iVersion>=8)
 	{
-		ReadFile(hFile, &m_bParticle_Not_Rotate, sizeof(bool), &dwRWC, NULL); // implement m_bParticle_Not_Rot?
-		ReadFile(hFile, &m_vParticle_Not_Rotate_Axis, sizeof(__Vector3), &dwRWC, NULL); // implement m_vParticle_Not_Rot?
-		ReadFile(hFile, &m_fPtRangeMin, sizeof(float), &dwRWC, NULL); // implement m_fPtRangeMin?
-		ReadFile(hFile, &m_fPtRangeMax, sizeof(float), &dwRWC, NULL); // implement m_fPtRangeMax?
+		ReadFile(hFile, &m_bParticle_Not_Rotate, sizeof(bool), &dwRWC, nullptr); // implement m_bParticle_Not_Rot?
+		ReadFile(hFile, &m_vParticle_Not_Rotate_Axis, sizeof(__Vector3), &dwRWC, nullptr); // implement m_vParticle_Not_Rot?
+		ReadFile(hFile, &m_fPtRangeMin, sizeof(float), &dwRWC, nullptr); // implement m_fPtRangeMin?
+		ReadFile(hFile, &m_fPtRangeMax, sizeof(float), &dwRWC, nullptr); // implement m_fPtRangeMax?
 	}
 	if (m_iVersion>=10)
 	{
 		char skip5byteshackery[5];
-		ReadFile(hFile, skip5byteshackery, 5, &dwRWC, NULL);
+		ReadFile(hFile, skip5byteshackery, 5, &dwRWC, nullptr);
 	}
 
 	if (m_iVersion>=11)
 	{
 		char skip12byteshackery[12];
-		ReadFile(hFile, skip12byteshackery, 12, &dwRWC, NULL);
+		ReadFile(hFile, skip12byteshackery, 12, &dwRWC, nullptr);
 	}
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run

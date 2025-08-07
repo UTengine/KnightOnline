@@ -200,7 +200,7 @@ bool CN3FXPartMesh::Load(HANDLE hFile)
 	DWORD dwRWC = 0;
 
 	char szShapeFileName[_MAX_PATH];
-	ReadFile(hFile, szShapeFileName, _MAX_PATH, &dwRWC, NULL);
+	ReadFile(hFile, szShapeFileName, _MAX_PATH, &dwRWC, nullptr);
 
 	if(m_pShape) delete m_pShape;
 	m_pShape = new CN3FXShape;
@@ -213,24 +213,24 @@ bool CN3FXPartMesh::Load(HANDLE hFile)
 	if(m_pShape->m_KeyScale.DataGet(0, vScale)) m_vUnitScale = vScale;
 	else m_vUnitScale = m_pShape->Scale();
 
-	ReadFile(hFile, &m_cTextureMoveDir, sizeof(char), &dwRWC, NULL);
-	ReadFile(hFile, &m_fu, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_fv, sizeof(float), &dwRWC, NULL);
-	ReadFile(hFile, &m_vScaleVel, sizeof(__Vector3), &dwRWC, NULL);
+	ReadFile(hFile, &m_cTextureMoveDir, sizeof(char), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fu, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_fv, sizeof(float), &dwRWC, nullptr);
+	ReadFile(hFile, &m_vScaleVel, sizeof(__Vector3), &dwRWC, nullptr);
 	m_vCurrScaleVel = m_vScaleVel;
 
-	if(m_iVersion>=2) ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, NULL);
-	if(m_iVersion>=3) ReadFile(hFile, &m_vScaleAccel, sizeof(__Vector3), &dwRWC, NULL);
-	if(m_iVersion>=4) ReadFile(hFile, &m_fMeshFPS, sizeof(float), &dwRWC, NULL);
-	if(m_iVersion>=5) ReadFile(hFile, &m_vUnitScale, sizeof(__Vector3), &dwRWC, NULL);
-	if (m_iVersion>=6) ReadFile(hFile, &m_bSkipUnknown0, sizeof(bool), &dwRWC, NULL); // implement m_bShapeLoop?
-	if (m_iVersion>=7) ReadFile(hFile, &m_bSkipUnknown1, sizeof(bool), &dwRWC, NULL); // implement m_bViewFix?
-	if (m_iVersion>=8) ReadFile(hFile, &m_bSkipUnknown2, sizeof(bool), &dwRWC, NULL); // implement m_bUseFadeShowLife?
+	if(m_iVersion>=2) ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, nullptr);
+	if(m_iVersion>=3) ReadFile(hFile, &m_vScaleAccel, sizeof(__Vector3), &dwRWC, nullptr);
+	if(m_iVersion>=4) ReadFile(hFile, &m_fMeshFPS, sizeof(float), &dwRWC, nullptr);
+	if(m_iVersion>=5) ReadFile(hFile, &m_vUnitScale, sizeof(__Vector3), &dwRWC, nullptr);
+	if (m_iVersion>=6) ReadFile(hFile, &m_bSkipUnknown0, sizeof(bool), &dwRWC, nullptr); // implement m_bShapeLoop?
+	if (m_iVersion>=7) ReadFile(hFile, &m_bSkipUnknown1, sizeof(bool), &dwRWC, nullptr); // implement m_bViewFix?
+	if (m_iVersion>=8) ReadFile(hFile, &m_bSkipUnknown2, sizeof(bool), &dwRWC, nullptr); // implement m_bUseFadeShowLife?
 	if (m_iVersion>=9)
 	{
 		// This is a hack to skip 260 bytes that were added in version 9 of the part file format.
 		char skip260byteshackery[_MAX_PATH];
-		ReadFile(hFile, skip260byteshackery, _MAX_PATH, &dwRWC, NULL);
+		ReadFile(hFile, skip260byteshackery, _MAX_PATH, &dwRWC, nullptr);
 	}
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
