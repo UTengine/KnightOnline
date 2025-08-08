@@ -182,7 +182,8 @@ void CN3FXPartBottomBoard::Init()
 //
 bool CN3FXPartBottomBoard::Load(HANDLE hFile)
 {
-	if(!CN3FXPartBase::Load(hFile)) return false;
+	if (!CN3FXPartBase::Load(hFile))
+		return false;
 
 	DWORD dwRWC = 0;
 
@@ -194,13 +195,16 @@ bool CN3FXPartBottomBoard::Load(HANDLE hFile)
 
 	ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, nullptr);
 
-	if(m_iVersion>=1)
-	{
+	if (m_iVersion >= 1)
 		ReadFile(hFile, &m_fGap, sizeof(float), &dwRWC, nullptr);
-	}
 
-	if (m_iVersion>=2) ReadFile(hFile, &m_bNew_Uv, sizeof(bool), &dwRWC, nullptr); // implement m_bNew_Uv?
-	if (m_iVersion>=3) ReadFile(hFile, &m_bHdr_uv, sizeof(bool), &dwRWC, nullptr); // implement m_bHdr_uv?
+	// TODO: implement m_bNew_Uv
+	if (m_iVersion >= 2)
+		ReadFile(hFile, &m_bNew_Uv, sizeof(bool), &dwRWC, nullptr);
+
+	// TODO: implement m_bHdr_uv
+	if (m_iVersion >= 3)
+		ReadFile(hFile, &m_bHdr_uv, sizeof(bool), &dwRWC, nullptr);
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.

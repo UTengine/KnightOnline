@@ -434,17 +434,18 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 
 	uint8_t	cTmp;
 	DWORD			dwRWC = 0;
-	
-	ReadFile(hFile, &cTmp, sizeof(uint8_t), &dwRWC, nullptr);
-	m_iVersion = (int)cTmp;
 
 	ReadFile(hFile, &cTmp, sizeof(uint8_t), &dwRWC, nullptr);
-	m_iBaseVersion = (int)cTmp;
+	m_iVersion = (int) cTmp;
+
+	ReadFile(hFile, &cTmp, sizeof(uint8_t), &dwRWC, nullptr);
+	m_iBaseVersion = (int) cTmp;
 
 	ReadFile(hFile, &m_fLife, sizeof(float), &dwRWC, nullptr);
-	if(m_fLife > 10.0f) m_fLife = 10.0f;
+	if (m_fLife > 10.0f)
+		m_fLife = 10.0f;
 
-	if (m_iBaseVersion>=3)
+	if (m_iBaseVersion >= 3)
 	{
 		int iIDK0, iIDK1;
 		ReadFile(hFile, &iIDK0, sizeof(int), &dwRWC, nullptr);
@@ -452,7 +453,7 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 	}
 
 	ReadFile(hFile, &cTmp, sizeof(uint8_t), &dwRWC, nullptr);
-	m_iType = (int)cTmp;
+	m_iType = (int) cTmp;
 
 	ReadFile(hFile, &m_vVelocity, sizeof(__Vector3), &dwRWC, nullptr);
 	ReadFile(hFile, &m_vAcceleration, sizeof(__Vector3), &dwRWC, nullptr);
@@ -466,7 +467,7 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 	ReadFile(hFile, &m_fTexFPS, sizeof(float), &dwRWC, nullptr);
 	ReadFile(hFile, &m_pTexName, MAX_PATH, &dwRWC, nullptr);
 
-	if(m_iBaseVersion<2)
+	if (m_iBaseVersion < 2)
 	{
 		ReadFile(hFile, &m_bAlpha, sizeof(BOOL), &dwRWC, nullptr);
 		ReadFile(hFile, &m_dwSrcBlend, sizeof(uint32_t), &dwRWC, nullptr);
@@ -475,7 +476,7 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 		ReadFile(hFile, &m_fFadeOut, sizeof(float), &dwRWC, nullptr);
 		ReadFile(hFile, &m_fFadeIn, sizeof(float), &dwRWC, nullptr);
 	}
-	if(m_iBaseVersion>=2)
+	else // if (m_iBaseVersion >= 2)
 	{
 		ReadFile(hFile, &m_dwSrcBlend, sizeof(uint32_t), &dwRWC, nullptr);
 		ReadFile(hFile, &m_dwDestBlend, sizeof(uint32_t), &dwRWC, nullptr);
@@ -484,24 +485,22 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 		ReadFile(hFile, &m_fFadeIn, sizeof(float), &dwRWC, nullptr);
 
 		ReadFile(hFile, &m_dwRenderFlag, sizeof(uint32_t), &dwRWC, nullptr);
-		
-		if(m_dwRenderFlag & RF_NOTZBUFFER) m_dwZEnable = D3DZB_FALSE;
+
+		if (m_dwRenderFlag & RF_NOTZBUFFER) m_dwZEnable = D3DZB_FALSE;
 		else m_dwZEnable = D3DZB_TRUE;
-		if(m_dwRenderFlag & RF_NOTZWRITE) m_dwZWrite = FALSE;
+		if (m_dwRenderFlag & RF_NOTZWRITE) m_dwZWrite = FALSE;
 		else m_dwZWrite = TRUE;
-		if(m_dwRenderFlag & RF_DOUBLESIDED) m_dwDoubleSide = D3DCULL_NONE;
+		if (m_dwRenderFlag & RF_DOUBLESIDED) m_dwDoubleSide = D3DCULL_NONE;
 		else m_dwDoubleSide = D3DCULL_CCW;
-		if(m_dwRenderFlag & RF_NOTUSELIGHT) m_dwLight = FALSE;
+		if (m_dwRenderFlag & RF_NOTUSELIGHT) m_dwLight = FALSE;
 		else m_dwLight = TRUE;
-		if(m_dwRenderFlag & RF_ALPHABLENDING) m_bAlpha = TRUE;
-		else m_bAlpha = FALSE;		
+		if (m_dwRenderFlag & RF_ALPHABLENDING) m_bAlpha = TRUE;
+		else m_bAlpha = FALSE;
 	}
 
-	if (m_iBaseVersion>=4)
-	{
-		char strIDK0[MAX_PATH];
-		ReadFile(hFile, strIDK0, MAX_PATH, &dwRWC, nullptr); // implement shape_hdrname ?
-	}
+	// TODO: implement shape_hdrname
+	if (m_iBaseVersion >= 4)
+		SetFilePointer(hFile, MAX_PATH, nullptr, FILE_CURRENT);
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.
@@ -522,15 +521,15 @@ bool CN3FXPartBase::Load(HANDLE hFile)
 
 	std::string FileName;
 	char Buff[5];
-	for(int i=0;i<m_iNumTex;i++)
+	for (int i = 0;i < m_iNumTex;i++)
 	{
-		sprintf(Buff,"%04d",i);
+		sprintf(Buff, "%04d", i);
 		FileName = m_pTexName;
 		FileName += Buff;
 		FileName += ".dxt";
 
 		m_ppRefTex[i] = CN3Base::s_MngTex.Get(FileName);
-	}	
+	}
 
 	return true;
 }

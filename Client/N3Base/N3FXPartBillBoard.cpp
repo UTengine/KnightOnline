@@ -188,7 +188,8 @@ void CN3FXPartBillBoard::Init()
 //
 bool CN3FXPartBillBoard::Load(HANDLE hFile)
 {
-	if(!CN3FXPartBase::Load(hFile)) return false;
+	if (!CN3FXPartBase::Load(hFile))
+		return false;
 
 	DWORD dwRWC = 0;
 	ReadFile(hFile, &m_iNum, sizeof(int), &dwRWC, nullptr);
@@ -198,9 +199,10 @@ bool CN3FXPartBillBoard::Load(HANDLE hFile)
 	ReadFile(hFile, &m_bTexLoop, sizeof(bool), &dwRWC, nullptr);
 	ReadFile(hFile, &m_fRadius, sizeof(float), &dwRWC, nullptr);
 
-	if(m_iVersion>=3) ReadFile(hFile, &m_bRoateOnlyY, sizeof(bool), &dwRWC, nullptr);
+	if (m_iVersion >= 3)
+		ReadFile(hFile, &m_bRoateOnlyY, sizeof(bool), &dwRWC, nullptr);
 
-	if(m_iVersion>=4)
+	if (m_iVersion >= 4)
 	{
 		ReadFile(hFile, &m_fScaleVelX, sizeof(float), &dwRWC, nullptr);
 		ReadFile(hFile, &m_fScaleVelY, sizeof(float), &dwRWC, nullptr);
@@ -208,19 +210,22 @@ bool CN3FXPartBillBoard::Load(HANDLE hFile)
 		ReadFile(hFile, &m_fScaleAccelY, sizeof(float), &dwRWC, nullptr);
 	}
 
-	if(m_iVersion>=5) ReadFile(hFile, &m_mtxRot, sizeof(m_mtxRot), &dwRWC, nullptr);
-	if (m_iVersion>=6) ReadFile(hFile, &m_bRotationRate, sizeof(bool), &dwRWC, nullptr); // implement m_bRotationRate?
-	if (m_iVersion>=7) ReadFile(hFile, &m_bOnScreen, sizeof(bool), &dwRWC, nullptr); // implement m_bOnScreen?
-	if (m_iVersion>=8)
-	{
-		char skipBuffer[13];
-		ReadFile(hFile, skipBuffer, sizeof(skipBuffer), &dwRWC, nullptr);
-	}
-	if (m_iVersion>=9)
-	{
-		char skipBuffer12[12];
-		ReadFile(hFile, skipBuffer12, sizeof(skipBuffer12), &dwRWC, nullptr);
-	}
+	if (m_iVersion >= 5)
+		ReadFile(hFile, &m_mtxRot, sizeof(m_mtxRot), &dwRWC, nullptr);
+
+	// TODO: implement m_bOnScreen
+	if (m_iVersion >= 6)
+		ReadFile(hFile, &m_bOnScreen, sizeof(bool), &dwRWC, nullptr);
+
+	// TODO: implement m_bRotationRate
+	if (m_iVersion >= 7)
+		ReadFile(hFile, &m_bRotationRate, sizeof(bool), &dwRWC, nullptr);
+
+	if (m_iVersion >= 8)
+		SetFilePointer(hFile, 13, nullptr, FILE_CURRENT);
+
+	if (m_iVersion >= 9)
+		SetFilePointer(hFile, 12, nullptr, FILE_CURRENT);
 
 	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
 	// and otherwise be broken for now.

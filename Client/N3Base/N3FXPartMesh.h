@@ -33,9 +33,9 @@ public:
 	float		m_fMeshFPS;
 
 	// N3FXPartMesh needs implementation of these methods
-	bool m_bSkipUnknown0;
-	bool m_bSkipUnknown1;
-	bool m_bSkipUnknown2;
+	bool m_bShapeLoop;
+	bool m_bViewFix;
+	bool m_bUseFadeShowLife;
 	// N3FXPartMesh needs implementation of these methods
 protected:
 	bool	IsDead();
