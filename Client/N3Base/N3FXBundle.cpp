@@ -298,10 +298,8 @@ bool CN3FXBundle::Load(HANDLE hFile)
 #if defined(_DEBUG)
 	if (m_iVersion > SUPPORTED_BUNDLE_VERSION)
 	{
-		TRACE(
-			"!!! WARNING: CN3FXBundle::Load(%s) encountered bundle version %d. Needs support!",
-			FileName().c_str(),
-			m_iVersion);
+		TRACE("!!! WARNING: CN3FXBundle::Load(%s) encountered bundle version %d. Needs support!",
+			FileName().c_str(), m_iVersion);
 	}
 #endif
 
@@ -321,66 +319,24 @@ bool CN3FXBundle::Load(HANDLE hFile)
 		if (iType == FX_PART_TYPE_NONE)
 			continue;
 
-		if (iType == FX_PART_TYPE_PARTICLE)
+		CN3FXPartBase* part = AllocatePart(iType);
+		if (part == nullptr)
 		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartParticles;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_PARTICLE;
-			m_pPart[i]->pPart->Load(hFile);
+			TRACE("!!! WARNING: CN3FXBundle::Load(%s) encountered invalid part type %d at index %d. Ending parsing here.",
+				FileName().c_str(), iType, i);
+			break;
 		}
-		else if (iType == FX_PART_TYPE_BOARD)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
 
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
+		float fStartTime = 0.0f;
+		ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
 
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartBillBoard;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_BOARD;
-			m_pPart[i]->pPart->Load(hFile);
-		}
-		else if (iType == FX_PART_TYPE_MESH)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartMesh;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_MESH;
-			m_pPart[i]->pPart->Load(hFile);
-		}
-		else if (iType == FX_PART_TYPE_BOTTOMBOARD)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartBottomBoard;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_BOTTOMBOARD;
-			m_pPart[i]->pPart->Load(hFile);
-		}
+		m_pPart[i] = new FXPARTWITHSTARTTIME;
+		m_pPart[i]->fStartTime = fStartTime;
+		m_pPart[i]->pPart = part;
+		m_pPart[i]->pPart->m_pRefBundle = this;
+		m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
+		m_pPart[i]->pPart->m_iType = iType;
+		m_pPart[i]->pPart->Load(hFile);
 	}
 
 	if (m_iVersion >= 2)
@@ -389,6 +345,26 @@ bool CN3FXBundle::Load(HANDLE hFile)
 	return true;
 }
 
+CN3FXPartBase* CN3FXBundle::AllocatePart(int iPartType) const
+{
+	switch (iPartType)
+	{
+		case FX_PART_TYPE_PARTICLE:
+			return new CN3FXPartParticles();
+
+		case FX_PART_TYPE_BOARD:
+			return new CN3FXPartBillBoard();
+
+		case FX_PART_TYPE_MESH:
+			return new CN3FXPartMesh();
+
+		case FX_PART_TYPE_BOTTOMBOARD:
+			return new CN3FXPartBottomBoard();
+
+		default:
+			return nullptr;
+	}
+}
 
 //
 //

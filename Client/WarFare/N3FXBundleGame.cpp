@@ -442,116 +442,18 @@ void CN3FXBundleGame::Duplicate(CN3FXBundleGame* pDestBundle)
 	}
 }
 
-
-//
-//
-//
-bool CN3FXBundleGame::Load(HANDLE hFile)
+CN3FXPartBase* CN3FXBundleGame::AllocatePart(int iPartType) const
 {
-	DWORD dwRWC = 0;
-
-	ReadFile(hFile, &m_iVersion, sizeof(int), &dwRWC, nullptr);
-
-	// NOTE: This should ideally just be an assertion, but we'll continue to allow it to run
-	// and otherwise be broken for now.
-#if defined(_DEBUG)
-	if (m_iVersion > SUPPORTED_BUNDLE_VERSION)
+	switch (iPartType)
 	{
-		TRACE(
-			"!!! WARNING: CN3FXBundleGame::Load(%s) encountered bundle version %d. Needs support!",
-			FileName().c_str(),
-			m_iVersion);
-	}
-#endif
+		case FX_PART_TYPE_BOARD:
+			return new CN3FXPartBillBoardGame();
 
-	ReadFile(hFile, &m_fLife0, sizeof(float), &dwRWC, nullptr);
-	if (m_fLife0 > 10.0f)
-		m_fLife0 = 10.0f;
-
-	ReadFile(hFile, &m_fVelocity, sizeof(float), &dwRWC, nullptr);
-	ReadFile(hFile, &m_bDependScale, sizeof(bool), &dwRWC, nullptr);
-
-	const int iPartCount = GetPartCountForVersion();
-	for (int i = 0; i < iPartCount; i++)
-	{
-		int iType = FX_PART_TYPE_NONE;
-
-		ReadFile(hFile, &iType, sizeof(int), &dwRWC, nullptr);
-
-		if (iType == FX_PART_TYPE_NONE)
-			continue;
-
-		if (iType == FX_PART_TYPE_PARTICLE)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartParticles;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_PARTICLE;
-			m_pPart[i]->pPart->m_iFileFormatVersion = m_iFileFormatVersion;
-			m_pPart[i]->pPart->Load(hFile);
-		}
-
-		else if (iType == FX_PART_TYPE_BOARD)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartBillBoardGame;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_BOARD;
-			m_pPart[i]->pPart->m_iFileFormatVersion = m_iFileFormatVersion;
-			m_pPart[i]->pPart->Load(hFile);
-		}
-		else if (iType == FX_PART_TYPE_MESH)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartMesh;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_MESH;
-			m_pPart[i]->pPart->m_iFileFormatVersion = m_iFileFormatVersion;
-			m_pPart[i]->pPart->Load(hFile);
-		}
-		else if (iType == FX_PART_TYPE_BOTTOMBOARD)
-		{
-			m_pPart[i] = new FXPARTWITHSTARTTIME;
-
-			float fStartTime = 0.0f;
-			ReadFile(hFile, &fStartTime, sizeof(float), &dwRWC, nullptr);
-
-			m_pPart[i]->fStartTime = fStartTime;
-
-			m_pPart[i]->pPart = new CN3FXPartBottomBoardGame;
-			m_pPart[i]->pPart->m_pRefBundle = this;
-			m_pPart[i]->pPart->m_pRefPrevPart = nullptr;
-			m_pPart[i]->pPart->m_iType = FX_PART_TYPE_BOTTOMBOARD;
-			m_pPart[i]->pPart->m_iFileFormatVersion = m_iFileFormatVersion;
-			m_pPart[i]->pPart->Load(hFile);
-		}
+		case FX_PART_TYPE_BOTTOMBOARD:
+			return new CN3FXPartBottomBoardGame();
 	}
 
-	if (m_iVersion >= 2)
-		ReadFile(hFile, &m_bStatic, sizeof(bool), &dwRWC, nullptr);
-
-	return true;
+	return CN3FXBundle::AllocatePart(iPartType);
 }
 
 void CN3FXBundleGame::SetPreBundlePos(int iSourceID, int iJoint)

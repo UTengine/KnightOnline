@@ -11,14 +11,15 @@
 #include "N3Base.h"
 #include "My_3DStruct.h"
 
-constexpr int MAX_FX_PART_V0 = 8;  // V0
-constexpr int MAX_FX_PART_V1 = 26; // V1+
+constexpr int MAX_FX_PART_V0		= 8;	// V0
+constexpr int MAX_FX_PART_V1_ORIG	= 16;	// V1 originally, before they changed it
+constexpr int MAX_FX_PART_V1		= 26;	// V1(+) after it was changed - no version change to identify this change
 
 // TODO: Fix this. The UI is just hardcoded for 16 (which got later updated to 26 without a version change).
-constexpr int MAX_FX_PART_TOOL = 16;
+constexpr int MAX_FX_PART_TOOL		= MAX_FX_PART_V1_ORIG;
 
 // 한 인스턴스가 동시에 표현할수 있는 갯수..
-constexpr int MAX_FX_PART = MAX_FX_PART_V1;
+constexpr int MAX_FX_PART			= MAX_FX_PART_V1;
 
 constexpr int NUM_VERTEX_PARTICLE = 4;	// 파티클 하나에 들어가는 점수..
 constexpr int NUM_VERTEX_BOTTOM = 10;	//
