@@ -181,7 +181,7 @@ bool CN3Texture::LoadFromFile(const std::string& szFileName, uint32_t iVer)
 	}
 
 	int nFNL = szFullPath.size();
-	if(lstrcmpi(&szFullPath[nFNL-3], "DXT") == 0)
+	if(lstrcmpi(&szFullPath[nFNL-3], "DXT") == 0 || lstrcmpi(&szFullPath[nFNL - 3], "GTT") == 0)
 	{
 		HANDLE hFile = ::CreateFile(szFullPath.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 		if(hFile == INVALID_HANDLE_VALUE)
