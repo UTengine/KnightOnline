@@ -55,6 +55,7 @@
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>.\;..\;..\..\Server\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <TreatWarningAsError>true</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -128,7 +129,6 @@
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DBAgent.cpp" />
     <ClCompile Include="ItemManager.cpp" />
     <ClCompile Include="ItemManagerDlg.cpp" />
     <ClCompile Include="SharedMem.cpp" />
@@ -143,7 +143,6 @@
     <ResourceCompile Include="ItemManager.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DBAgent.h" />
     <ClInclude Include="Define.h" />
     <ClInclude Include="ItemManager.h" />
     <ClInclude Include="ItemManagerDlg.h" />

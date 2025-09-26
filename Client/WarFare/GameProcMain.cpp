@@ -80,32 +80,7 @@
 static char THIS_FILE[]=__FILE__;
 #endif
 
-enum e_ChatCmd
-{
-	CMD_WHISPER, CMD_TOWN, CMD_EXIT, CMD_GREETING, CMD_GREETING2, CMD_GREETING3,
-	CMD_PROVOKE, CMD_PROVOKE2, CMD_PROVOKE3, CMD_GAME_SAVE, CMD_RECOMMEND, CMD_INDIVIDUAL_BATTLE,
-	CMDSIT_STAND, CMD_WALK_RUN, CMD_LOCATION,
-	
-	CMD_TRADE, CMD_FORBIDTRADE, CMD_PERMITTRADE, CMD_MERCHANT,
-
-	CMD_PARTY, CMD_LEAVEPARTY, CMD_RECRUITPARTY, CMD_FORBIDPARTY, CMD_PERMITPARTY,
-
-	CMD_JOINCLAN, CMD_WITHDRAWCLAN, CMD_FIRECLAN, CMD_COMMAND, CMD_CLAN_WAR,
-	CMD_SURRENDER, CMD_APPOINTVICECHIEF, CMD_CLAN_CHAT, CMD_CLAN_BATTLE,
-
-	CMD_CONFEDERACY, CMD_BAN_KNIGHTS, CMD_QUIT_KNIGHTS, CMD_BASE, CMD_DECLARATION,
-
-	CMD_VISIBLE, CMD_INVISIBLE, CMD_CLEAN, CMD_RAINING, CMD_SNOWING, CMD_TIME, CMD_CU_COUNT,
-	CMD_NOTICE, CMD_ARREST, CMD_FORBIDCONNECT, CMD_FORBIDCHAT, CMD_PERMITCHAT, CMD_NOTICEALL,
-	CMD_CUTOFF, CMD_VIEW, CMD_UNVIEW, CMD_FORBIDUSER, CMD_SUMMONUSER,
-	CMD_ATTACKDISABLE, CMD_ATTACKENABLE, CMD_PLC,
-
-	CMD_COUNT,
-	CMD_UNKNOWN = 0xffffffff
-};
-static std::string s_szCmdMsg[CMD_COUNT]; // 게임상 명령어
-
-
+std::string g_szCmdMsg[CMD_COUNT]; // 게임상 명령어
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -150,8 +125,8 @@ CGameProcMain::CGameProcMain()				// r기본 생성자.. 각 변수의 역활은
 	m_pUIInventory = new CUIInventory();
 	m_pUIPartyOrForce = new CUIPartyOrForce();
 	m_pUISkillTreeDlg = new CUISkillTreeDlg();
-	m_pUICmdListDlg = new CUICmdList();
-	m_pUICmdEditDlg = new CUICmdEdit();
+	m_pUICmdList = new CUICmdList();
+	m_pUICmdEdit = new CUICmdEdit();
 	m_pUIHotKeyDlg = new CUIHotKeyDlg();
 	m_pUIKnightsOp = new CUIKnightsOperation();			// 기사단 리스트 보기, 가입, 등...
 	m_pUIPartyBBS = new CUIPartyBBS(); // 파티 지원 시스템 게시판??..
@@ -200,8 +175,8 @@ CGameProcMain::~CGameProcMain()
 	delete m_pUIInventory;
 	delete m_pUIPartyOrForce;
 	delete m_pUISkillTreeDlg;
-	delete m_pUICmdListDlg;
-	delete m_pUICmdEditDlg;
+	delete m_pUICmdList;
+	delete m_pUICmdEdit;
 	delete m_pUIHotKeyDlg;
 	delete m_pUIKnightsOp;
 	delete m_pUIPartyBBS;
@@ -259,8 +234,8 @@ void CGameProcMain::ReleaseUIs()
 	m_pUIRepairTooltip->Release();
 	m_pUIPartyOrForce->Release();
 	m_pUISkillTreeDlg->Release();
-	m_pUICmdListDlg->Release();
-	m_pUICmdEditDlg->Release();
+	m_pUICmdList->Release();
+	m_pUICmdEdit->Release();
 	m_pUIHotKeyDlg->Release();
 	m_pUIKnightsOp->Release();			// 기사단 리스트 보기, 가입, 등...
 	m_pUIPartyBBS->Release();
@@ -281,24 +256,35 @@ void CGameProcMain::Init()
 	m_pLightMgr->Release();
 	s_pEng->SetDefaultLight(m_pLightMgr->Light(0), m_pLightMgr->Light(1), m_pLightMgr->Light(2));
 
+	// Reset lighting from previous scenes.
+	// Our scene will setup lighting as needed.
+	for (int i = 0; i < 8; i++)
+		s_lpD3DDev->LightEnable(i, FALSE);
+
 	int i = 0;
-	for (uint32_t resource = IDS_CMD_WHISPER; resource <= IDS_CMD_LOCATION; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+	for (uint32_t resource = IDS_CMD_WHISPER; resource <= IDS_CMD_INDIVIDUAL_BATTLE; resource++)
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	for (uint32_t resource = IDS_CMD_TRADE; resource <= IDS_CMD_MERCHANT; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	for (uint32_t resource = IDS_CMD_PARTY; resource <= IDS_CMD_PERMITPARTY; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	for (uint32_t resource = IDS_CMD_JOINCLAN; resource <= IDS_CMD_CLAN_BATTLE; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	for (uint32_t resource = IDS_CMD_CONFEDERACY; resource <= IDS_CMD_DECLARATION; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	for (uint32_t resource = IDS_CMD_VISIBLE; resource <= IDS_CMD_PLC; resource++)
-		s_szCmdMsg[i++] = fmt::format_text_resource(resource);
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
+
+	for (uint32_t resource = IDS_CMD_HIDE; resource <= IDS_CMD_DESTROY; resource++)
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
+
+	for (uint32_t resource = IDS_CMD_ROYALORDER; resource <= IDS_CMD_REWARD; resource++)
+		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
 
@@ -797,26 +783,9 @@ bool CGameProcMain::ProcessPacket(Packet& pkt)
 		}
 		return true;
 #endif
-		case WIZ_ZONEABILITY: {
-			// NOTE(srmeier): this is a custom packet used to set terrain zoneability
-			uint8_t opcode = pkt.read<uint8_t>();
-
-			switch (opcode) {
-				case 0x03://0x01:
-					uint16_t zoneFlags = pkt.read<uint16_t>();
-					e_ZoneAbilityType zoneType = (e_ZoneAbilityType)pkt.read<uint8_t>();
-					uint8_t zoneTariff = pkt.read<uint8_t>();
-					uint8_t minLevel = pkt.read<uint8_t>();
-					uint8_t maxLevel = pkt.read<uint8_t>();
-
-					ACT_WORLD->m_zoneFlags  = zoneFlags;
-					ACT_WORLD->m_zoneType   = zoneType;
-					ACT_WORLD->m_byTariff   = zoneTariff;
-					ACT_WORLD->m_byMinLevel = minLevel;
-					ACT_WORLD->m_byMaxLevel = maxLevel;
-				break;
-			}
-		} return true;
+	case WIZ_ZONEABILITY:
+		MsgRecv_ZoneAbility(pkt);
+		return true;
 
 		case WIZ_DEBUG_STRING_PACKET: {
 			// NOTE(srmeier): testing this debug string functionality
@@ -1482,8 +1451,13 @@ void CGameProcMain::MsgSend_Rotation()
 
 void CGameProcMain::MsgSend_Chat(e_ChatMode eMode, const std::string& szChat)
 {
-	if(szChat.empty() || szChat.size() >= 128) return;
-	if(eMode==N3_CHAT_CLAN && s_pPlayer->m_InfoExt.iKnightsID <=0) return;
+	if (szChat.empty()
+		|| szChat.size() >= 128)
+		return;
+
+	if (eMode == N3_CHAT_CLAN
+		&& s_pPlayer->m_InfoBase.iKnightsID <= 0)
+		return;
 
 	uint8_t byBuff[512];
 	int iOffset=0;
@@ -1910,7 +1884,7 @@ bool CGameProcMain::MsgRecv_MyInfo_All(Packet& pkt)
 	if(m_pUIVar->m_pPageState) m_pUIVar->m_pPageState->UpdateID(szID); // 이름 적용.
 	m_pUIVar->UpdateAllStates(&(s_pPlayer->m_InfoBase), &(s_pPlayer->m_InfoExt));
 
-	//__KnightsInfoBase* pKIB = m_pUIKnightsOp->KnightsInfoFind(s_pPlayer->m_InfoExt.iKnightsID);
+	//__KnightsInfoBase* pKIB = m_pUIKnightsOp->KnightsInfoFind(s_pPlayer->m_InfoBase.iKnightsID);
 	//if(pKIB) m_pUIVar->m_pPageKnights->UpdateKnightsName(pKIB->szName);
 	
 	// 상태 바 갱신
@@ -2105,7 +2079,8 @@ bool CGameProcMain::MsgRecv_MyInfo_All(Packet& pkt)
 	// 기본값 읽기..
 	////////////////////////////////////////////////////////////
 
-	this->InitPlayerPosition(__Vector3(fX, fY, fZ)); // 플레이어 위치 초기화.. 일으켜 세우고, 기본동작을 취하게 한다.
+	InitPlayerPosition(__Vector3(fX, fY, fZ)); // 플레이어 위치 초기화.. 일으켜 세우고, 기본동작을 취하게 한다.
+	s_pPlayer->RegenerateCollisionMesh();
 
 	// berserk temp
 	//s_pPlayer->PlugSet(PLUG_POS_BACK, "item/babacloak.n3cplug_cloak", nullptr);	// 파트를 셋팅..
@@ -2117,6 +2092,9 @@ bool CGameProcMain::MsgRecv_MyInfo_All(Packet& pkt)
 	//..
 	s_pOPMgr->Release();							// 다른 유저 관리 클래스 초기화..
 	
+	if (m_pUICmdList != nullptr)
+		m_pUICmdList->CreateCategoryList();
+
 	m_bLoadComplete = TRUE;						// 로딩 끝..
 
 	return true;
@@ -2189,31 +2167,29 @@ bool CGameProcMain::MsgRecv_Chat(Packet& pkt)
 
 
 	// 통역 서비스...           ㅡ,.ㅡ a
-	if( N3_CHAT_NORMAL == eCM || 
-		N3_CHAT_PRIVATE == eCM || 
-		N3_CHAT_SHOUT == eCM )
+	if (N3_CHAT_NORMAL == eCM
+		|| N3_CHAT_PRIVATE == eCM
+		|| N3_CHAT_SHOUT == eCM)
 	{
-		// TEMP(srmeier): this again depends on zoneability and will need to be looked at
-		/*
-		if(eNation != s_pPlayer->m_InfoBase.eNation)
+		if (eNation != s_pPlayer->Nation()
+			&& !s_pPlayer->m_InfoExt.bCanTalkToOtherNation)
 		{
 			CPlayerBase* pTalker = s_pOPMgr->UPCGetByID(iID, false);
 			bool bIamManager = (0 == s_pPlayer->m_InfoBase.iAuthority) ? true : false;
-			bool bTalkerIsManager = (pTalker && 0 == pTalker->m_InfoBase.iAuthority)  ? true : false;
-				
-			if(!(bIamManager || bTalkerIsManager)) // 내가 운영자가 아니고 상대방도 운영자가 아니면
+			bool bTalkerIsManager = (pTalker && 0 == pTalker->m_InfoBase.iAuthority) ? true : false;
+
+			// 내가 운영자가 아니고 상대방도 운영자가 아니면
+			if (!bIamManager
+				&& !bTalkerIsManager)
 			{
-				int i = szChat.find(':');
-				if(i >= 0)
+				int i = static_cast<int>(szChat.find(':'));
+				if (i >= 0)
 				{
-					for(; i < iChatLen; i++)
-					{
-						szChat[i] = '!' + rand()%10; // 이상한 말로 바꾼다..
-					}
+					for (; i < iChatLen; i++)
+						szChat[i] = '!' + rand() % 10; // 이상한 말로 바꾼다..
 				}
 			}
 		}
-		*/
 	}
 	
 	// 풍선말 넣기..
@@ -3812,7 +3788,7 @@ void CGameProcMain::InitUI()
 	RECT rcCmd = m_pUICmd->GetRegion(); rcCmd.top += 5; // .. 하드 코딩..
 	iX = 0;
 	iY = iH - ((rc.bottom - rc.top) + (rcCmd.bottom - rcCmd.top));
-	CGameProcedure::UIPostData_Read(UI_POST_WND_CHAT, m_pUIChatDlg, iX, iY);
+	UIPostData_Read(UI_POST_WND_CHAT, m_pUIChatDlg, iX, iY);
 	m_pUIChatDlg->SetStyle(UISTYLE_FOCUS_UNABLE | UISTYLE_HIDE_UNABLE);
 	m_pUIChatDlg->SetVisibleWithNoSound(true);
 
@@ -3823,7 +3799,7 @@ void CGameProcMain::InitUI()
 
 	m_pUIMsgDlg->Init(s_pUIMgr);
 	m_pUIMsgDlg->LoadFromFile(pTbl->szMsgOutput);
-	CGameProcedure::UIPostData_Read(UI_POST_WND_INFO, m_pUIMsgDlg, rc.right, rc.top);
+	UIPostData_Read(UI_POST_WND_INFO, m_pUIMsgDlg, rc.right, rc.top);
 	m_pUIMsgDlg->SetStyle(UISTYLE_FOCUS_UNABLE | UISTYLE_HIDE_UNABLE);
 	m_pUIMsgDlg->SetVisibleWithNoSound(true);
 
@@ -3831,6 +3807,10 @@ void CGameProcMain::InitUI()
 	m_pUIMsgDlg2->LoadFromFile(pTbl->szMsgOutput2);
 	m_pUIMsgDlg2->SetStyle(UISTYLE_FOCUS_UNABLE | UISTYLE_HIDE_UNABLE);
 	m_pUIMsgDlg2->SetVisibleWithNoSound(false);
+
+	// Default info box next to chat
+	RECT rcChat = m_pUIChatDlg->GetRegion();
+	m_pUIMsgDlg->SetPos(rcChat.right, rcChat.top);
 
 	// 채팅창과 메시지 창 위치 맞추기..
 	m_pUIChatDlg->MoveOffset(0, -1);
@@ -3880,7 +3860,7 @@ void CGameProcMain::InitUI()
 
 	m_pUIHelp->Init(s_pUIMgr);
 	m_pUIHelp->LoadFromFile(pTbl->szHelp);
-	CGameProcedure::UIPostData_Read(UI_POST_WND_HELP, m_pUIHelp, 0, 0);
+	UIPostData_Read(UI_POST_WND_HELP, m_pUIHelp, 0, 0);
 	rc = m_pUIHelp->GetRegion();
 	iX = (iW - (rc.right - rc.left))/2;
 	iY = (iH - (rc.bottom - rc.top))/2;
@@ -3997,31 +3977,28 @@ void CGameProcMain::InitUI()
 	m_pUISkillTreeDlg->SetState(UI_STATE_COMMON_NONE);
 	m_pUISkillTreeDlg->SetStyle(m_pUISkillTreeDlg->GetStyle() | UISTYLE_POS_RIGHT);
 
+	m_pUICmdList->Init(s_pUIMgr);
+	m_pUICmdList->LoadFromFile(pTbl->szCmdList);
+	m_pUICmdList->SetVisibleWithNoSound(false);
+	rc = m_pUICmdList->GetRegion();
+	m_pUICmdList->SetPos(iW - (rc.right - rc.left), 10);
+	m_pUICmdList->SetStyle(m_pUISkillTreeDlg->GetStyle() | UISTYLE_POS_RIGHT);
 
-	m_pUICmdListDlg->Init(s_pUIMgr);
-	m_pUICmdListDlg->LoadFromFile(pTbl->szCmdList);
-	m_pUICmdListDlg->SetVisibleWithNoSound(false);
-	rc = m_pUICmdListDlg->GetRegion();
-	m_pUICmdListDlg->SetPos(iW - (rc.right - rc.left), 10);
-	m_pUICmdListDlg->SetUIType(UI_TYPE_BASE);
-	m_pUICmdListDlg->SetState(UI_STATE_COMMON_NONE);
-	m_pUICmdListDlg->SetStyle(m_pUISkillTreeDlg->GetStyle() | UISTYLE_POS_RIGHT);
-
-	m_pUICmdEditDlg->Init(s_pUIMgr);
-	m_pUICmdEditDlg->LoadFromFile(pTbl->szCmdEdit);
-	m_pUICmdEditDlg->SetVisibleWithNoSound(false);
-	rc = m_pUICmdEditDlg->GetRegion();
+	m_pUICmdEdit->Init(s_pUIMgr);
+	m_pUICmdEdit->LoadFromFile(pTbl->szCmdEdit);
+	m_pUICmdEdit->SetVisibleWithNoSound(false);
+	rc = m_pUICmdEdit->GetRegion();
 	iX = (iW - (rc.right - rc.left)) / 2;
 	iY = (iH - (rc.bottom - rc.top)) / 2;
-	m_pUICmdEditDlg->SetPos(iX, iY);
-	m_pUICmdEditDlg->SetStyle(UISTYLE_USER_MOVE_HIDE);
+	m_pUICmdEdit->SetPos(iX, iY);
+	m_pUICmdEdit->SetStyle(UISTYLE_USER_MOVE_HIDE);
 	
 	// default ui pos ..	해상도가 변경되면.. 상대 위치를 구해야 한다.. by ecli666
 	rc = m_pUIStateBarAndMiniMap->GetRegion();
 	m_pUIHotKeyDlg->Init(s_pUIMgr);
 	m_pUIHotKeyDlg->LoadFromFile(pTbl->szHotKey);
 	m_pUIHotKeyDlg->SetStyle(UISTYLE_HIDE_UNABLE);
-	CGameProcedure::UIPostData_Read(UI_POST_WND_HOTKEY, m_pUIHotKeyDlg, rc.left, rc.bottom);
+	UIPostData_Read(UI_POST_WND_HOTKEY, m_pUIHotKeyDlg, rc.left, rc.bottom);
 	m_pUIHotKeyDlg->SetVisibleWithNoSound(true); // 무조건 보인다!!!
 	m_pUIHotKeyDlg->InitIconWnd(UIWND_HOTKEY);
 	m_pUIHotKeyDlg->SetUIType(UI_TYPE_ICON_MANAGER);
@@ -4412,6 +4389,7 @@ void CGameProcMain::InitZone(int iZone, const __Vector3& vPosPlayer)
 	CLogWriter::Write("InitPlayerPosition() Position({:.1f}, {:.1f}, {:.1f})",
 		vPosPlayer.x, vPosPlayer.y, vPosPlayer.z); // TmpLog1122
 	InitPlayerPosition(vPosPlayer); // 플레이어 위치 초기화.. 일으켜 세우고, 기본동작을 취하게 한다.
+	s_pPlayer->RegenerateCollisionMesh(); // 충돌 메시를 다시 만든다..
 	s_pOPMgr->Release(); // 다른 플레이어 삭제...
 }
 
@@ -4576,7 +4554,10 @@ void CGameProcMain::StartAutoAttack(CPlayerBase* target)
 		return;
 
 	s_pPlayer->RotateTo(target);
-	
+
+	if (!s_pPlayer->IsHostileTarget(target))
+		return;
+
 	// check if the target is attackable
 	// this can fail for several reasons:
 	// - invalid target
@@ -4591,19 +4572,6 @@ void CGameProcMain::StartAutoAttack(CPlayerBase* target)
 		// return;
 	}
 
-	//-------------------------------------------------------------------------
-	/*
-	// TODO(srmeier): need to use ZoneAbilityType here
-	// NOTE(srmeier): using zoneability information to determine if target is attackable
-	if (!ACT_WORLD->canAttackSameNation() && (pTarget->m_InfoBase.eNation == s_pPlayer->m_InfoBase.eNation))
-		return;
-	if (!ACT_WORLD->canAttackOtherNation() && (s_pPlayer->m_InfoBase.eNation == NATION_ELMORAD && pTarget->m_InfoBase.eNation == NATION_KARUS))
-		return;
-	if (!ACT_WORLD->canAttackOtherNation() && (s_pPlayer->m_InfoBase.eNation == NATION_KARUS && pTarget->m_InfoBase.eNation == NATION_ELMORAD))
-		return;
-	*/
-	//-------------------------------------------------------------------------
-	
 	s_pPlayer->m_bAttackContinous = true;
 	
 	SetGameCursor(s_hCursorAttack);
@@ -4761,19 +4729,19 @@ bool CGameProcMain::CommandToggleUIMiniMap()
 
 bool CGameProcMain::CommandToggleCmdList()
 {
-	bool bNeedOpen = !(m_pUICmdListDlg->IsVisible());
+	bool bNeedOpen = !(m_pUICmdList->IsVisible());
 
 	if (m_pSubProcPerTrade->m_ePerTradeState != PER_TRADE_STATE_NONE)
 		return bNeedOpen;
 
 	if (bNeedOpen)
 	{
-		s_pUIMgr->SetFocusedUI(m_pUICmdListDlg);
-		m_pUICmdListDlg->Open();
+		s_pUIMgr->SetFocusedUI(m_pUICmdList);
+		m_pUICmdList->Open();
 	}
 	else
 	{
-		m_pUICmdListDlg->Close();
+		m_pUICmdList->Close();
 	}
 
 	return bNeedOpen;
@@ -4789,12 +4757,12 @@ bool CGameProcMain::CommandToggleLevelGuide()
 
 bool CGameProcMain::OpenCmdEdit(std::string msg)
 {
-	bool bNeedOpen = !(m_pUICmdEditDlg->IsVisible());
+	bool bNeedOpen = !m_pUICmdEdit->IsVisible();
 
 	if (bNeedOpen)
 	{
-		s_pUIMgr->SetFocusedUI(m_pUICmdEditDlg);
-		m_pUICmdEditDlg->Open(msg);
+		s_pUIMgr->SetFocusedUI(m_pUICmdEdit);
+		m_pUICmdEdit->Open(msg);
 	}
 
 	return bNeedOpen;
@@ -4871,13 +4839,7 @@ void CGameProcMain::MsgRecv_ZoneChange(
 
 			LoadingUIChange(iVictoryNation);
 
-			__Vector3 vPosPlayer;
-			vPosPlayer.x = fX;
-			vPosPlayer.y = fY;
-			vPosPlayer.z = fZ;
-			InitPlayerPosition(vPosPlayer); // 플레이어 위치 초기화.. 일으켜 세우고, 기본동작을 취하게 한다.
 
-			s_pPlayer->RegenerateCollisionMesh(); // 충돌 메시를 다시 만든다..
 			s_pPlayer->m_iSendRegeneration = 0; // 한번 보내면 다시 죽을때까지 안보내는 플래그
 			s_pPlayer->m_fTimeAfterDeath = 0; // 한번 보내면 다시 죽을때까지 안보내는 플래그
 
@@ -5241,7 +5203,7 @@ void CGameProcMain::CommandSitDown(bool bLimitInterval, bool bSitDown, bool bImm
 // 가장 가까운 적 타겟 잡기..
 void CGameProcMain::CommandTargetSelect_NearestEnemy()
 {
-	CPlayerNPC* pTarget = s_pOPMgr->CharacterGetByNearestEnemy(s_pPlayer->m_InfoBase.eNation, s_pPlayer->Position());
+	CPlayerNPC* pTarget = s_pOPMgr->CharacterGetByNearestEnemy(s_pPlayer->Position());
 	TargetSelect(pTarget);
 	s_pPlayer->RotateTo(pTarget);
 }
@@ -5665,7 +5627,7 @@ void CGameProcMain::ParseChattingCommand(const std::string& szCmd)
 	e_ChatCmd eCmd = CMD_UNKNOWN;
 	for(int i = 0; i < CMD_COUNT; i++)
 	{
-		if(0 == lstrcmpi(szCmds[0], s_szCmdMsg[i].c_str()))
+		if(0 == lstrcmpi(szCmds[0], g_szCmdMsg[i].c_str()))
 		{
 			eCmd = (e_ChatCmd)i;
 			break;
@@ -5711,6 +5673,10 @@ void CGameProcMain::ParseChattingCommand(const std::string& szCmd)
 				// 상거래 중이 아니면..
 				&& !m_pUITransactionDlg->IsVisible())
 			{
+				if (s_pPlayer->Nation() != pOPC->Nation()
+					&& !s_pPlayer->m_InfoExt.bCanTradeWithOtherNation)
+					return;
+
 				std::string szMsg = fmt::format_text_resource(IDS_PERSONAL_TRADE_REQUEST);
 				MsgOutput(pOPC->IDString() + szMsg, 0xffffff00);
 
@@ -5887,9 +5853,9 @@ void CGameProcMain::ParseChattingCommand(const std::string& szCmd)
 
 		case CMD_NOTICE:
 		{
-			if(szCmd.size() >= (s_szCmdMsg[CMD_NOTICE].size()+2))//7)
+			if(szCmd.size() >= (g_szCmdMsg[CMD_NOTICE].size()+2))//7)
 			{
-				std::string szChat = szCmd.substr(s_szCmdMsg[CMD_NOTICE].size()+2); // "/공지 "를 제외한 나머지 문자열
+				std::string szChat = szCmd.substr(g_szCmdMsg[CMD_NOTICE].size()+2); // "/공지 "를 제외한 나머지 문자열
 				this->MsgSend_Chat(N3_CHAT_PUBLIC, szChat);
 			}
 		}
@@ -5986,7 +5952,6 @@ void CGameProcMain::UpdateUI_MiniMap()
 	m_pUIStateBarAndMiniMap->PositionInfoClear();
 
 	D3DCOLOR crType = 0xffffffff;
-	e_Nation eNation = s_pPlayer->m_InfoBase.eNation;
 
 	it_NPC it = s_pOPMgr->m_NPCs.begin(), itEnd = s_pOPMgr->m_NPCs.end();
 	CPlayerNPC* pNPC = nullptr;
@@ -5994,8 +5959,10 @@ void CGameProcMain::UpdateUI_MiniMap()
 	{
 		pNPC = it->second;
 
-		if(eNation != pNPC->m_InfoBase.eNation) crType = 0xff800000; // 다른 국가 NPC 혹은 몬스터 주황색
-		else crType = 0xff00a0ff; // 같은 국가 NPC 하늘색
+		if (s_pPlayer->IsHostileTarget(pNPC))
+			crType = 0xff800000; // 다른 국가 NPC 혹은 몬스터 주황색
+		else
+			crType = 0xff00a0ff; // 같은 국가 NPC 하늘색
 
 		m_pUIStateBarAndMiniMap->PositionInfoAdd(pNPC->IDNumber(), pNPC->Position(), crType, false);
 	}
@@ -6008,7 +5975,8 @@ void CGameProcMain::UpdateUI_MiniMap()
 		pUPC = it2->second;
 
 		bool bDrawTop = false;
-		if(eNation != pUPC->m_InfoBase.eNation) // 적국일경우
+		// 적국일경우
+		if (s_pPlayer->IsHostileTarget(pUPC))
 		{
 			if(pUPC->State() == PSA_SITDOWN)
 			{
@@ -6079,7 +6047,6 @@ void CGameProcMain::UpdateBGM()
 
 //	if(s_pPlayer->pTarget && s_pPlayer->pTarget->IsAlive()) 
 	__Vector3 vPosPlayer = s_pPlayer->Position();
-	e_Nation eNationPlayer = s_pPlayer->m_InfoBase.eNation;
 
 	bool bStopBattleBgm = true;
 	CPlayerBase* pBPC;
@@ -6087,7 +6054,8 @@ void CGameProcMain::UpdateBGM()
 	for(; it != itEnd && bStopBattleBgm; it++)
 	{
 		pBPC = it->second;
-		if(eNationPlayer == pBPC->m_InfoBase.eNation) continue;
+		if (!s_pPlayer->IsHostileTarget(pBPC))
+			continue;
 
 		if((vPosPlayer - pBPC->Position()).Magnitude() < 12.0f)
 			bStopBattleBgm = false;
@@ -6098,7 +6066,8 @@ void CGameProcMain::UpdateBGM()
 	for(; it2 != itEnd2 && bStopBattleBgm; it2++)
 	{
 		pUPC = it2->second;
-		if(eNationPlayer == pUPC->m_InfoBase.eNation) continue;
+		if (!s_pPlayer->IsHostileTarget(pUPC))
+			continue;
 
 		if((vPosPlayer - pUPC->Position()).Magnitude() < 12.0f)
 			bStopBattleBgm = false;
@@ -6186,7 +6155,7 @@ void CGameProcMain::MsgRecv_Knights(Packet& pkt)
 			{
 			case N3_SP_KNIGHTS_COMMON_SUCCESS: //클랜파괴 성공
 				szMsg = fmt::format_text_resource(IDS_CLAN_WITHDRAW_SUCCESS);
-				m_pUIKnightsOp->KnightsInfoDelete(s_pPlayer->m_InfoExt.iKnightsID);
+				m_pUIKnightsOp->KnightsInfoDelete(s_pPlayer->m_InfoBase.iKnightsID);
 				this->MsgOutput(szMsg, 0xffffff00);
 				break;
 			case N3_SP_KNIGHTS_COMMON_DBFAIL: //DB검색 실패..
@@ -6214,7 +6183,7 @@ void CGameProcMain::MsgRecv_Knights(Packet& pkt)
 		{
 			szMsg = fmt::format_text_resource(IDS_KNIGHTS_DESTROY_SUCCESS); // 성공
 
-			s_pPlayer->m_InfoExt.iKnightsID = 0;
+			s_pPlayer->m_InfoBase.iKnightsID = 0;
 			s_pPlayer->m_InfoExt.eKnightsDuty = KNIGHTS_DUTY_UNKNOWN;
 
 			// 기사단에서 뺀다..
@@ -6805,11 +6774,11 @@ void CGameProcMain::MsgRecv_Knights_Withdraw(Packet& pkt)
 			int sid = pkt.read<int16_t>();
 			if(s_pPlayer->IDNumber()==sid)
 			{
-				s_pPlayer->m_InfoExt.iKnightsID = pkt.read<int16_t>();
+				s_pPlayer->m_InfoBase.iKnightsID = pkt.read<int16_t>();
 				s_pPlayer->m_InfoExt.eKnightsDuty = (e_KnightsDuty)pkt.read<uint8_t>();
 				m_pUIVar->UpdateKnightsInfo();
 
-				s_pPlayer->KnightsInfoSet(s_pPlayer->m_InfoExt.iKnightsID, "", 0, 0);
+				s_pPlayer->KnightsInfoSet(s_pPlayer->m_InfoBase.iKnightsID, "", 0, 0);
 				szMsg = fmt::format_text_resource(IDS_CLAN_WITHDRAW_SUCCESS);
 				this->MsgOutput(szMsg, 0xffffff00);
 
@@ -7044,7 +7013,7 @@ void CGameProcMain::MsgRecv_Knights_AppointViceChief(Packet& pkt)
 			int iID = pkt.read<int16_t>();
 			e_KnightsDuty eDuty = (e_KnightsDuty)pkt.read<uint8_t>();
 
-			s_pPlayer->m_InfoExt.iKnightsID = iID;
+			s_pPlayer->m_InfoBase.iKnightsID = iID;
 			s_pPlayer->m_InfoExt.eKnightsDuty = eDuty;
 			m_pUIVar->UpdateKnightsInfo();
 
@@ -7139,7 +7108,7 @@ void CGameProcMain::MsgRecv_Knights_GradeChangeAll(Packet& pkt)
 		CPlayerOther* pUPC = it->second;
 		if(nullptr == pUPC) continue;
 
-		int iIDTmp = pUPC->m_InfoExt.iKnightsID;
+		int iIDTmp = pUPC->m_InfoBase.iKnightsID;
 		if(iIDTmp <= 0) continue;
 
 		for(int i = 0; i < iCount; i++)
@@ -7168,13 +7137,13 @@ void CGameProcMain::MsgRecv_Knights_Duty_Change(Packet& pkt)
 
 			if(s_pPlayer->IDNumber()==sid)
 			{
-				s_pPlayer->m_InfoExt.iKnightsID = iID;
+				s_pPlayer->m_InfoBase.iKnightsID = iID;
 				s_pPlayer->m_InfoExt.eKnightsDuty = eDuty;
 				m_pUIVar->UpdateKnightsInfo();
-				if(s_pPlayer->m_InfoExt.iKnightsID == 0)
+				if(s_pPlayer->m_InfoBase.iKnightsID == 0)
 					s_pPlayer->KnightsInfoSet(0, "", 0, 0);
 				//std::string szName;
-				//__KnightsInfoBase* pKIB = m_pUIKnightsOp->KnightsInfoFind(s_pPlayer->m_InfoExt.iKnightsID);
+				//__KnightsInfoBase* pKIB = m_pUIKnightsOp->KnightsInfoFind(s_pPlayer->m_InfoBase.iKnightsID);
 				//if(pKIB) m_pUIVar->m_pPageKnights->UpdateKnightsName(pKIB->szName);
 				//else m_pUIVar->m_pPageKnights->UpdateKnightsName("");
 			}
@@ -7676,9 +7645,8 @@ bool CGameProcMain::OnMouseRBtnPress(POINT ptCur, POINT ptPrev)
 		else // 보통 NPC 이면..
 		{
 			// NOTE: an NPC has been clicked on
-			// TODO(srmeier): need to use ZoneAbilityType here
-			// NOTE(srmeier): using the zone type to decide if you can talk with NPC
-			if(ACT_WORLD->GetZoneType()==ZONE_ABILITY_NEUTRAL || (pNPC->m_InfoBase.eNation == s_pPlayer->m_InfoBase.eNation)) // 같은 국가 일때만..
+			// 같은 국가 일때만..
+			if (!s_pPlayer->IsHostileTarget(pNPC))
 			{
 				float fD = (s_pPlayer->Position() - pNPC->Position()).Magnitude();
 				float fDLimit = (s_pPlayer->Radius() + pNPC->Radius()) * 3.0f;
@@ -7820,10 +7788,9 @@ void CGameProcMain::MsgRecv_ClassPromotion(Packet& pkt)
 	s_pFX->TriggerBundle(socketID, -1, FXID_CLASS_CHANGE, socketID, -1);
 }
 
-void CGameProcMain::MsgRecv_ItemUpgrade(
-	Packet& pkt)
+void CGameProcMain::MsgRecv_ItemUpgrade(Packet& pkt)
 {
-	// NOTE: This method may not officially exist; it's inlined into CGameProcMain::PacketProcess()
+	// NOTE: This method may not officially exist; it's inlined into CGameProcMain::ProcessPacket()
 	auto opcode = (e_ItemUpgradeOpcode) pkt.read<uint8_t>();
 	switch (opcode)
 	{
@@ -7850,5 +7817,17 @@ void CGameProcMain::MsgRecv_ItemUpgrade(
 				m_pUIRingUpgrade->MsgRecv_RingUpgrade(pkt);
 #endif
 			break;
+	}
+}
+
+void CGameProcMain::MsgRecv_ZoneAbility(Packet& pkt)
+{
+	auto opcode = (e_ZoneAbilityOpcode) pkt.read<uint8_t>();
+	if (opcode == ZONE_ABILITY_UPDATE)
+	{
+		s_pPlayer->m_InfoExt.bCanTradeWithOtherNation	= pkt.read<bool>();
+		s_pPlayer->m_InfoExt.eZoneAbilityType			= (e_ZoneAbilityType) pkt.read<uint8_t>();
+		s_pPlayer->m_InfoExt.bCanTalkToOtherNation		= pkt.read<bool>();
+		s_pPlayer->m_InfoExt.sZoneTariff				= pkt.read<int16_t>();
 	}
 }

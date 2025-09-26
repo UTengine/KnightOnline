@@ -46,7 +46,7 @@ public:
 	short			m_sZoneIndex;		// 현재 존의 index 번호..
 
 	BYTE	m_bNation;						// 소속국가
-	short	m_sLevel;						// 레벨
+	uint8_t	m_byLevel;						// 레벨
 
 	short	m_sHP;							// HP
 	short	m_sMP;							// MP
@@ -83,7 +83,7 @@ public:
 	BYTE   m_byIsOP;					// 운영자인지를 판단..
 	long   m_lUsed;						// 포인터 사용유무.. (1:사용중.. 접근 허락치 않음. 0:사용해도 무방)
 
-	BOOL		m_bLogOut;				// Logout 중인가?
+	bool	m_bLogOut;				// Logout 중인가?
 
 	// 2002.7.10 - Yookozuna
 	BYTE    m_bMagicTypeLeftHand;			// The type of magic item in user's left hand  
@@ -108,13 +108,13 @@ public:
 	void HealMagic();
 	void HealAreaCheck(int rx, int rz);
 
-	void SendAttackSuccess(int tuid, BYTE result, short sDamage, int nHP = 0, short sAttack_type = 1);  // 공격 성공
+	void SendAttackSuccess(int tuid, BYTE result, short sDamage, int nHP = 0, uint8_t sAttack_type = 1);  // 공격 성공
 	void SendMagicAttackResult(int tuid, BYTE result, short sDamage, short sHP = 0);  // 공격 성공
 	void SendHP();												// user의 HP
 	void SendExp(int iExp, int iLoyalty, int tType = 1);
 	void SendSystemMsg(const std::string_view msg, BYTE type, int nWho);
 	void SendAll(const char* pBuf, int nLength);						// game server로 패킷 전송...
-	BOOL IsOpIDCheck(char* szName);
+	bool IsOpIDCheck(const char* szName);
 
 	CUser();
 	virtual ~CUser();

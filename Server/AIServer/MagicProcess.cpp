@@ -166,7 +166,7 @@ model::Magic* CMagicProcess::IsAvailable(int magicid, int tid, BYTE type)
 
 	char send_buff[128] = {};
 	if (m_pSrcUser == nullptr)
-		return FALSE;
+		return nullptr;
 
 	pTable = m_pMain->m_MagicTableMap.GetData(magicid);     // Get main magic table.
 	if (pTable == nullptr)
@@ -544,8 +544,8 @@ void CMagicProcess::ExecuteType4(int magicid, int sid, int tid, int data1, int d
 			pNpc->m_MagicType4[pType->BuffType - 1].byAmount = pType->Speed;
 			pNpc->m_MagicType4[pType->BuffType - 1].sDurationTime = pType->Duration;
 			pNpc->m_MagicType4[pType->BuffType - 1].fStartTime = TimeGet();
-			pNpc->m_fSpeed_1 = pNpc->m_fOldSpeed_1 * ((double) pType->Speed / 100);
-			pNpc->m_fSpeed_2 = pNpc->m_fOldSpeed_2 * ((double) pType->Speed / 100);
+			pNpc->m_fSpeed_1 = pNpc->m_fOldSpeed_1 * (pType->Speed / 100.0f);
+			pNpc->m_fSpeed_2 = pNpc->m_fOldSpeed_2 * (pType->Speed / 100.0f);
 			//TRACE(_T("executeType4 ,, speed1=%.2f, %.2f,, type=%d, cur=%.2f, %.2f\n"), pNpc->m_fOldSpeed_1, pNpc->m_fOldSpeed_2, pType->bSpeed, pNpc->m_fSpeed_1, pNpc->m_fSpeed_2);
 //			}
 			break;
@@ -688,7 +688,7 @@ short CMagicProcess::GetMagicDamage(int tid, int total_hit, int attribute, int d
 	short damage = 0, temp_hit = 0;
 	int random = 0, total_r = 0;
 	BYTE result;
-	BOOL bSign = TRUE;			// FALSE이면 -, TRUE이면 +
+	bool bSign = true;			// false이면 -, true이면 +
 
 	// Check if target id is valid.
 	if (tid < NPC_BAND
@@ -757,12 +757,12 @@ short CMagicProcess::GetMagicDamage(int tid, int total_hit, int attribute, int d
 		if (total_hit < 0)
 		{
 			total_hit = abs(total_hit);
-			bSign = FALSE;
+			bSign = false;
 		}
 
-		damage = (short) (total_hit - (0.7f * total_hit * total_r / 200));
+		damage = static_cast<short>(total_hit - (0.7f * total_hit * total_r / 200));
 		random = myrand(0, damage);
-		damage = (short) (0.7f * (total_hit - (0.9f * total_hit * total_r / 200))) + 0.2f * random;
+		damage = static_cast<short>((0.7f * (total_hit - (0.9f * total_hit * total_r / 200))) + 0.2f * random);
 //		damage = damage + (3 * righthand_damage);
 		damage = damage + righthand_damage;
 	}
@@ -1075,8 +1075,8 @@ void CMagicProcess::AreaAttackDamage(int magictype, int rx, int rz, int magicid,
 						pNpc->m_MagicType4[pType4->BuffType - 1].byAmount = pType4->Speed;
 						pNpc->m_MagicType4[pType4->BuffType - 1].sDurationTime = pType4->Duration;
 						pNpc->m_MagicType4[pType4->BuffType - 1].fStartTime = TimeGet();
-						pNpc->m_fSpeed_1 = pNpc->m_fOldSpeed_1 * ((double) pType4->Speed / 100);
-						pNpc->m_fSpeed_2 = pNpc->m_fOldSpeed_2 * ((double) pType4->Speed / 100);
+						pNpc->m_fSpeed_1 = pNpc->m_fOldSpeed_1 * (pType4->Speed / 100.0f);
+						pNpc->m_fSpeed_2 = pNpc->m_fOldSpeed_2 * (pType4->Speed / 100.0f);
 					//}
 						break;
 
@@ -1158,23 +1158,23 @@ void CMagicProcess::AreaAttackDamage(int magictype, int rx, int rz, int magicid,
 
 short CMagicProcess::GetWeatherDamage(short damage, short attribute)
 {
-	BOOL weather_buff = FALSE;
+	bool weather_buff = false;
 
 	switch (m_pMain->m_iWeather)
 	{
 		case WEATHER_FINE:
 			if (attribute == ATTRIBUTE_FIRE)
-				weather_buff = TRUE;
+				weather_buff = true;
 			break;
 
 		case WEATHER_RAIN:
 			if (attribute == ATTRIBUTE_LIGHTNING)
-				weather_buff = TRUE;
+				weather_buff = true;
 			break;
 
 		case WEATHER_SNOW:
 			if (attribute == ATTRIBUTE_ICE)
-				weather_buff = TRUE;
+				weather_buff = true;
 			break;
 	}
 

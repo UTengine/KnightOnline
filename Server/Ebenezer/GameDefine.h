@@ -150,6 +150,25 @@ constexpr int ITEM_NO_TRADE		= 900000001;	// 거래 불가 아이템들.... 비�
 
 ////////////////////////////////////////////////////////////
 
+enum e_BeefRoastVictory : uint8_t
+{
+	BEEF_ROAST_VICTORY_START = 0,						// Stage for Bifrost to be be captured by a nation - 30 minutes.
+	BEEF_ROAST_VICTORY_KARUS,							// Karus captured the Bifrost monument and can now solely enter Bifrost - 60 minutes.
+	BEEF_ROAST_VICTORY_ELMORAD,							// El Morad captured the Bifrost monument and can now solely enter Bifrost - 60 minutes.
+	BEEF_ROAST_VICTORY_ALL,								// Both nations are allowed to enter Bifrost - 2 hours.
+	BEEF_ROAST_VICTORY_PENDING_RESTART_AFTER_VICTORY,	// Bifrost is not active - 4 hours
+	BEEF_ROAST_VICTORY_PENDING_RESTART_AFTER_DRAW,		// Bifrost is not active - 2 hours
+};
+
+enum e_InvasionMonumentType
+{
+	INVASION_MONUMENT_BASE	= 0, // Luferson/El Morad
+	INVASION_MONUMENT_ASGA	= 1, // Asga/Bellua
+	INVASION_MONUMENT_RAIBA	= 2, // Raiba/Linate
+	INVASION_MONUMENT_DODA	= 3, // Doda/Laon
+	INVASION_MONUMENT_COUNT
+};
+
 ////////////////////////////////////////////////////////////
 // USER POINT DEFINE
 enum e_StatType

@@ -5,10 +5,12 @@
 #include "stdafx.h"
 #include "Ebenezer.h"
 #include "EbenezerDlg.h"
-#include "User.h"
 #include "Map.h"
+#include "OperationMessage.h"
+#include "User.h"
 #include "db_resources.h"
 
+#include <shared/globals.h>
 #include <shared/packets.h>
 #include <spdlog/spdlog.h>
 
@@ -18,10 +20,9 @@ static char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
 
-
 extern CRITICAL_SECTION g_region_critical;
 extern CRITICAL_SECTION g_LogFile_critical;
-extern BYTE g_serverdown_flag;
+extern bool g_serverdown_flag;
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -52,8 +53,8 @@ void CUser::Initialize()
 	m_sBodyAc = 0;
 	m_sTotalHit = 0;
 	m_sTotalAc = 0;
-	m_sTotalHitrate = 0;
-	m_sTotalEvasionrate = 0;
+	m_fTotalHitRate = 0;
+	m_fTotalEvasionRate = 0;
 
 	m_sItemMaxHp = 0;
 	m_sItemMaxMp = 0;
@@ -148,13 +149,13 @@ void CUser::Initialize()
 
 	m_sEventNid = -1;
 
-	m_bZoneChangeFlag = FALSE;
+	m_bZoneChangeFlag = false;
 
 	m_bRegeneType = 0;
 
 	m_fLastRegeneTime = 0.0f;
 
-	m_bZoneChangeSameZone = FALSE;
+	m_bZoneChangeSameZone = false;
 
 	memset(m_strCouponId, 0, sizeof(m_strCouponId));
 	m_iEditBoxEvent = -1;
@@ -171,6 +172,8 @@ void CUser::Initialize()
 	m_bIsChicken = false;
 	m_byKnightsRank = 0;
 	m_byPersonalRank = 0;
+
+	m_byLastExchangeNum = 0;
 
 	CIOCPSocket2::Initialize();
 }
@@ -1447,8 +1450,8 @@ void CUser::Attack(char* pBuf)
 //	sid = GetShort(pBuf, index);
 	tid = GetShort(pBuf, index);
 // 비러머글 해킹툴 유저 --;
-	delaytime = GetShort(pBuf, index);
-	distance = GetShort(pBuf, index);
+	delaytime = static_cast<float>(GetShort(pBuf, index));
+	distance = static_cast<float>(GetShort(pBuf, index));
 //
 
 //	delaytime = delaytime / 100.0f;
@@ -1641,8 +1644,8 @@ void CUser::Attack(char* pBuf)
 			SetShort(send_buff, tid, send_index);
 			SetShort(send_buff, m_sTotalHit * m_bAttackAmount / 100, send_index);   // 표시
 			SetShort(send_buff, m_sTotalAc + m_sACAmount, send_index);   // 표시
-			Setfloat(send_buff, m_sTotalHitrate, send_index);
-			Setfloat(send_buff, m_sTotalEvasionrate, send_index);
+			Setfloat(send_buff, m_fTotalHitRate, send_index);
+			Setfloat(send_buff, m_fTotalEvasionRate, send_index);
 			SetShort(send_buff, m_sItemAc, send_index);
 			SetByte(send_buff, m_bMagicTypeLeftHand, send_index);
 			SetByte(send_buff, m_bMagicTypeRightHand, send_index);
@@ -1748,8 +1751,8 @@ void CUser::SendMyInfo(int type)
 			}
 		}
 
-		m_pUserData->m_curx = x;
-		m_pUserData->m_curz = z;
+		m_pUserData->m_curx = static_cast<float>(x);
+		m_pUserData->m_curz = static_cast<float>(z);
 	}
 
 	SetByte(send_buff, WIZ_MYINFO, send_index);
@@ -1864,6 +1867,8 @@ void CUser::SendMyInfo(int type)
 
 	Send(send_buff, send_index);
 
+	SetZoneAbilityChange(m_pUserData->m_bZone);
+
 	// AI Server쪽으로 정보 전송..
 	int ai_send_index = 0;
 	char ai_send_buff[256] = {};
@@ -1879,8 +1884,8 @@ void CUser::SendMyInfo(int type)
 	SetShort(ai_send_buff, m_pUserData->m_sMp, ai_send_index);
 	SetShort(ai_send_buff, m_sTotalHit * m_bAttackAmount / 100, ai_send_index);  // 표시
 	SetShort(ai_send_buff, m_sTotalAc + m_sACAmount, ai_send_index);  // 표시
-	Setfloat(ai_send_buff, m_sTotalHitrate, ai_send_index);
-	Setfloat(ai_send_buff, m_sTotalEvasionrate, ai_send_index);
+	Setfloat(ai_send_buff, m_fTotalHitRate, ai_send_index);
+	Setfloat(ai_send_buff, m_fTotalEvasionRate, ai_send_index);
 
 // Yookozuna
 	SetShort(ai_send_buff, m_sItemAc, ai_send_index);
@@ -1917,6 +1922,14 @@ void CUser::Chat(char* pBuf)
 		return;
 
 	GetString(chatstr, pBuf, chatlen, index);
+
+	if (m_pUserData->m_bAuthority == AUTHORITY_MANAGER
+		&& chatstr[0] == '+')
+	{
+		OperationMessage opMessage(m_pMain, this);
+		opMessage.Process(chatstr);
+		return;
+	}
 
 	if (type == PUBLIC_CHAT
 		|| type == ANNOUNCEMENT_CHAT)
@@ -2004,7 +2017,7 @@ void CUser::SetMaxHp(int iFlag)
 		return;
 
 	int temp_sta = 0;
-	temp_sta = m_pUserData->m_bSta + m_sItemSta + m_bStaAmount;
+	temp_sta = m_pUserData->m_bSta + m_sItemSta + m_sStaAmount;
 //	if (temp_sta > 255)
 //		temp_sta = 255;
 
@@ -2045,11 +2058,11 @@ void CUser::SetMaxMp()
 		return;
 
 	int temp_intel = 0, temp_sta = 0;
-	temp_intel = m_pUserData->m_bIntel + m_sItemIntel + m_bIntelAmount + 30;
+	temp_intel = m_pUserData->m_bIntel + m_sItemIntel + m_sIntelAmount + 30;
 //	if (temp_intel > 255)
 //		temp_intel = 255;
 
-	temp_sta = m_pUserData->m_bSta + m_sItemSta + m_bStaAmount;
+	temp_sta = m_pUserData->m_bSta + m_sItemSta + m_sStaAmount;
 //	if (temp_sta > 255)
 //		temp_sta = 255;
 
@@ -2150,8 +2163,8 @@ void CUser::Regene(char* pBuf, int magicid)
 			// Frontier Zone...
 			if (m_pUserData->m_bZone > 200)
 			{
-				x = pHomeInfo->FreeZoneX + myrand(0, pHomeInfo->FreeZoneLX);
-				z = pHomeInfo->FreeZoneZ + myrand(0, pHomeInfo->FreeZoneLZ);
+				x = static_cast<float>(pHomeInfo->FreeZoneX + myrand(0, pHomeInfo->FreeZoneLX));
+				z = static_cast<float>(pHomeInfo->FreeZoneZ + myrand(0, pHomeInfo->FreeZoneLZ));
 			}
 //
 			// Battle Zone...
@@ -2164,21 +2177,21 @@ void CUser::Regene(char* pBuf, int magicid)
 				KickOutZoneUser();	// Go back to your own zone!
 				return;
 */
-				x = pHomeInfo->BattleZoneX + myrand(0, pHomeInfo->BattleZoneLX);
-				z = pHomeInfo->BattleZoneZ + myrand(0, pHomeInfo->BattleZoneLZ);
+				x = static_cast<float>(pHomeInfo->BattleZoneX + myrand(0, pHomeInfo->BattleZoneLX));
+				z = static_cast<float>(pHomeInfo->BattleZoneZ + myrand(0, pHomeInfo->BattleZoneLZ));
 // 비러머글 개척존 바꾸어치기 >.<
 				if (m_pUserData->m_bZone == ZONE_SNOW_BATTLE)
 				{
-					x = pHomeInfo->FreeZoneX + myrand(0, pHomeInfo->FreeZoneLX);
-					z = pHomeInfo->FreeZoneZ + myrand(0, pHomeInfo->FreeZoneLZ);
+					x = static_cast<float>(pHomeInfo->FreeZoneX + myrand(0, pHomeInfo->FreeZoneLX));
+					z = static_cast<float>(pHomeInfo->FreeZoneZ + myrand(0, pHomeInfo->FreeZoneLZ));
 				}
 //
 			}
 // 비러머글 뉴존 >.<
 			else if (m_pUserData->m_bZone > 10 && m_pUserData->m_bZone < 20)
 			{
-				x = 527 + myrand(0, 10);
-				z = 543 + myrand(0, 10);
+				x = static_cast<float>(527 + myrand(0, 10));
+				z = static_cast<float>(543 + myrand(0, 10));
 			}
 //
 			// Specific Lands...
@@ -2186,13 +2199,13 @@ void CUser::Regene(char* pBuf, int magicid)
 			{
 				if (m_pUserData->m_bNation == KARUS)
 				{
-					x = pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX);
-					z = pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ);
+					x = static_cast<float>(pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX));
+					z = static_cast<float>(pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ));
 				}
 				else if (m_pUserData->m_bNation == ELMORAD)
 				{
-					x = pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX);
-					z = pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ);
+					x = static_cast<float>(pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX));
+					z = static_cast<float>(pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ));
 				}
 				else return;
 			}
@@ -2205,13 +2218,13 @@ void CUser::Regene(char* pBuf, int magicid)
 		{
 			if (m_pUserData->m_bNation == KARUS)
 			{
-				x = pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX);
-				z = pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ);
+				x = static_cast<float>(pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX));
+				z = static_cast<float>(pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ));
 			}
 			else if (m_pUserData->m_bNation == ELMORAD)
 			{
-				x = pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX);
-				z = pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ);
+				x = static_cast<float>(pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX));
+				z = static_cast<float>(pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ));
 			}
 			else
 			{
@@ -2343,7 +2356,7 @@ void CUser::Regene(char* pBuf, int magicid)
 
 void CUser::ZoneChange(int zone, float x, float z)
 {
-	m_bZoneChangeFlag = TRUE;
+	m_bZoneChangeFlag = true;
 
 	int send_index = 0, zoneindex = 0;
 	char send_buff[128] = {};
@@ -2457,6 +2470,9 @@ void CUser::ZoneChange(int zone, float x, float z)
 		SetMaxHp(1);
 	}
 
+	if (m_pUserData->m_bZone != zone)
+		SetZoneAbilityChange(zone);
+
 	m_iZoneIndex = zoneindex;
 	m_pUserData->m_bZone = zone;
 	m_pUserData->m_curx = m_fWill_x = x;
@@ -2524,8 +2540,7 @@ void CUser::ZoneChange(int zone, float x, float z)
 		InitType4();
 	}
 
-	if (m_bZoneChangeSameZone)
-		m_bZoneChangeSameZone = FALSE;
+	m_bZoneChangeSameZone = false;
 //
 	int ai_send_index = 0;
 	char ai_send_buff[256] = {};
@@ -2535,7 +2550,7 @@ void CUser::ZoneChange(int zone, float x, float z)
 	SetByte(ai_send_buff, m_pUserData->m_bZone, ai_send_index);
 	m_pMain->Send_AIServer(m_pUserData->m_bZone, ai_send_buff, ai_send_index);
 
-	m_bZoneChangeFlag = FALSE;
+	m_bZoneChangeFlag = false;
 }
 
 void CUser::Warp(char* pBuf)
@@ -3017,7 +3032,7 @@ void CUser::SetSlotItemValue()
 			if ((m_pUserData->m_sClass == BERSERKER
 				|| m_pUserData->m_sClass == BLADE))
 	//			m_sItemHit += item_hit * (double) (m_pUserData->m_bstrSkill[PRO_SKILL1] / 60.0);    // 성래씨 요청 ^^;
-				m_sItemHit += item_hit * 0.5f;
+				m_sItemHit += static_cast<short>(item_hit * 0.5f);
 		}
 
 		m_sItemMaxHp += pTable->MaxHpBonus;
@@ -3229,10 +3244,10 @@ short CUser::GetDamage(short tid, int magicid)
 			// Relative hit.
 			else
 			{
-				result = GetHitRate((m_sTotalHitrate / pTUser->m_sTotalEvasionrate) * (pType1->HitRateMod / 100.0f));
+				result = GetHitRate((m_fTotalHitRate / pTUser->m_fTotalEvasionRate) * (pType1->HitRateMod / 100.0f));
 			}
 
-			temp_hit = temp_hit_B * (pType1->DamageMod / 100.0f);
+			temp_hit = static_cast<short>(temp_hit_B * (pType1->DamageMod / 100.0f));
 		}
 		// ARROW HIT!
 		else if (pTable->Type1 == 2)
@@ -3255,21 +3270,21 @@ short CUser::GetDamage(short tid, int magicid)
 			// Relative hit/Arc hit.
 			else
 			{
-				result = GetHitRate((m_sTotalHitrate / pTUser->m_sTotalEvasionrate) * (pType2->HitRateMod / 100.0f));
+				result = GetHitRate((m_fTotalHitRate / pTUser->m_fTotalEvasionRate) * (pType2->HitRateMod / 100.0f));
 			}
 
 			if (pType2->HitType == 1
 				/*|| pType2->HitType == 2*/)
-				temp_hit = m_sTotalHit * m_bAttackAmount * (pType2->DamageMod / 100.0f) / 100;   // 표시
+				temp_hit = static_cast<short>(m_sTotalHit * m_bAttackAmount * (pType2->DamageMod / 100.0f) / 100);   // 표시
 			else
-				temp_hit = temp_hit_B * (pType2->DamageMod / 100.0f);
+				temp_hit = static_cast<short>(temp_hit_B * (pType2->DamageMod / 100.0f));
 		}
 	}
 	// Normal Hit.
 	else
 	{
 		temp_hit = m_sTotalHit * m_bAttackAmount / 100;	// 표시
-		result = GetHitRate(m_sTotalHitrate / pTUser->m_sTotalEvasionrate);
+		result = GetHitRate(m_fTotalHitRate / pTUser->m_fTotalEvasionRate);
 	}
 
 	// 1. Magical item damage....
@@ -3556,7 +3571,7 @@ void CUser::ExpChange(int iExp)
 		{
 			--m_pUserData->m_bLevel;
 			m_pUserData->m_iExp += m_pMain->m_LevelUpTableArray[m_pUserData->m_bLevel - 1]->RequiredExp;
-			LevelChange(m_pUserData->m_bLevel, FALSE);
+			LevelChange(m_pUserData->m_bLevel, false);
 			return;
 		}
 	}
@@ -3583,7 +3598,7 @@ void CUser::ExpChange(int iExp)
 		m_iLostExp = -iExp;
 }
 
-void CUser::LevelChange(short level, BYTE type)
+void CUser::LevelChange(short level, bool bLevelUp)
 {
 	if (level < 1
 		|| level > MAX_LEVEL)
@@ -3592,7 +3607,7 @@ void CUser::LevelChange(short level, BYTE type)
 	char send_buff[256] = {};
 	int send_index = 0;
 
-	if (type != 0)
+	if (bLevelUp)
 	{
 		if ((m_pUserData->m_bPoints + m_pUserData->m_bSta + m_pUserData->m_bStr + m_pUserData->m_bDex + m_pUserData->m_bIntel + m_pUserData->m_bCha) < (300 + 3 * (level - 1)))
 			m_pUserData->m_bPoints += 3;
@@ -3824,8 +3839,8 @@ void CUser::Send2AI_UserUpdateInfo()
 	SetShort(send_buff, m_pUserData->m_sMp, send_index);
 	SetShort(send_buff, m_sTotalHit * m_bAttackAmount / 100, send_index); // 표시
 	SetShort(send_buff, m_sTotalAc + m_sACAmount, send_index);  // 표시
-	Setfloat(send_buff, m_sTotalHitrate, send_index);
-	Setfloat(send_buff, m_sTotalEvasionrate, send_index);
+	Setfloat(send_buff, m_fTotalHitRate, send_index);
+	Setfloat(send_buff, m_fTotalEvasionRate, send_index);
 
 //
 	SetShort(send_buff, m_sItemAc, send_index);
@@ -3842,13 +3857,13 @@ void CUser::SetUserAbility()
 {
 	model::Coefficient* p_TableCoefficient = nullptr;
 	model::Item* pItem = nullptr;
-	BOOL bHaveBow = FALSE;
+	bool bHaveBow = false;
 
 	p_TableCoefficient = m_pMain->m_CoefficientTableMap.GetData(m_pUserData->m_sClass);
 	if (p_TableCoefficient == nullptr)
 		return;
 
-	float hitcoefficient = 0.0f;
+	double hitcoefficient = 0.0;
 	if (m_pUserData->m_sItemArray[RIGHTHAND].nNum != 0)
 	{
 		pItem = m_pMain->m_ItemTableMap.GetData(m_pUserData->m_sItemArray[RIGHTHAND].nNum);
@@ -3881,7 +3896,7 @@ void CUser::SetUserAbility()
 				case WEAPON_LONGBOW:
 				case WEAPON_LAUNCHER:
 					hitcoefficient = p_TableCoefficient->Bow;
-					bHaveBow = TRUE;
+					bHaveBow = true;
 					break;
 
 				case WEAPON_STAFF:
@@ -3892,7 +3907,7 @@ void CUser::SetUserAbility()
 	}
 
 	if (m_pUserData->m_sItemArray[LEFTHAND].nNum != 0
-		&& hitcoefficient == 0.0f)
+		&& hitcoefficient == 0.0)
 	{
 		// 왼손 무기 : 활 적용을 위해
 		pItem = m_pMain->m_ItemTableMap.GetData(m_pUserData->m_sItemArray[LEFTHAND].nNum);
@@ -3905,7 +3920,7 @@ void CUser::SetUserAbility()
 				case WEAPON_LONGBOW:
 				case WEAPON_LAUNCHER:
 					hitcoefficient = p_TableCoefficient->Bow;
-					bHaveBow = TRUE;
+					bHaveBow = true;
 					break;
 			}
 		}
@@ -3913,11 +3928,11 @@ void CUser::SetUserAbility()
 
 	int temp_str = 0, temp_dex = 0;
 
-	temp_str = m_pUserData->m_bStr + m_bStrAmount + m_sItemStr;
+	temp_str = m_pUserData->m_bStr + m_sStrAmount + m_sItemStr;
 //	if (temp_str > 255)
 //		temp_str = 255;
 
-	temp_dex = m_pUserData->m_bDex + m_bDexAmount + m_sItemDex;
+	temp_dex = m_pUserData->m_bDex + m_sDexAmount + m_sItemDex;
 //	if (temp_dex > 255)
 //		temp_dex = 255;
 
@@ -3929,18 +3944,18 @@ void CUser::SetUserAbility()
 */
 	if (bHaveBow)
 	{
-		m_sTotalHit = (short) ((((0.005 * pItem->Damage * (temp_dex + 40)) + (hitcoefficient * pItem->Damage * m_pUserData->m_bLevel * temp_dex)) + 3));
+		m_sTotalHit = static_cast<short>(((0.005 * pItem->Damage * (temp_dex + 40)) + (hitcoefficient * pItem->Damage * m_pUserData->m_bLevel * temp_dex)) + 3);
 	}
 	else
 	{
-		m_sTotalHit = (short) ((((0.005f * m_sItemHit * (temp_str + 40)) + (hitcoefficient * m_sItemHit * m_pUserData->m_bLevel * temp_str)) + 3));
+		m_sTotalHit = static_cast<short>(((0.005f * m_sItemHit * (temp_str + 40)) + (hitcoefficient * m_sItemHit * m_pUserData->m_bLevel * temp_str)) + 3);
 	}
 
 	// 토탈 AC = 테이블 코에피션트 * (레벨 + 아이템 AC + 테이블 4의 AC)
-	m_sTotalAc = (short) (p_TableCoefficient->Armor * (m_sBodyAc + m_sItemAc));
-	m_sTotalHitrate = ((1 + p_TableCoefficient->HitRate * m_pUserData->m_bLevel * temp_dex) * m_sItemHitrate / 100) * (m_bHitRateAmount / 100);
+	m_sTotalAc = static_cast<short>(p_TableCoefficient->Armor * (m_sBodyAc + m_sItemAc));
+	m_fTotalHitRate = static_cast<float>(((1 + p_TableCoefficient->HitRate * m_pUserData->m_bLevel * temp_dex) * m_sItemHitrate / 100) * (m_bHitRateAmount / 100));
 
-	m_sTotalEvasionrate = ((1 + p_TableCoefficient->Evasionrate * m_pUserData->m_bLevel * temp_dex) * m_sItemEvasionrate / 100) * (m_sAvoidRateAmount / 100);
+	m_fTotalEvasionRate = static_cast<float>((1 + p_TableCoefficient->Evasionrate * m_pUserData->m_bLevel * temp_dex) * m_sItemEvasionrate / 100) * (m_sAvoidRateAmount / 100);
 
 	SetMaxHp();
 	SetMaxMp();
@@ -4447,11 +4462,11 @@ void CUser::ItemMove(char* pBuf)
 	SetShort(send_buff, GetMaxWeightForClient(), send_index);
 	SetShort(send_buff, m_iMaxHp, send_index);
 	SetShort(send_buff, m_iMaxMp, send_index);
-	SetShort(send_buff, m_sItemStr + m_bStrAmount, send_index);
-	SetShort(send_buff, m_sItemSta + m_bStaAmount, send_index);
-	SetShort(send_buff, m_sItemDex + m_bDexAmount, send_index);
-	SetShort(send_buff, m_sItemIntel + m_bIntelAmount, send_index);
-	SetShort(send_buff, m_sItemCham + m_bChaAmount, send_index);
+	SetShort(send_buff, m_sItemStr + m_sStrAmount, send_index);
+	SetShort(send_buff, m_sItemSta + m_sStaAmount, send_index);
+	SetShort(send_buff, m_sItemDex + m_sDexAmount, send_index);
+	SetShort(send_buff, m_sItemIntel + m_sIntelAmount, send_index);
+	SetShort(send_buff, m_sItemCham + m_sChaAmount, send_index);
 	SetShort(send_buff, m_bFireR, send_index);
 	SetShort(send_buff, m_bColdR, send_index);
 	SetShort(send_buff, m_bLightningR, send_index);
@@ -4501,85 +4516,85 @@ fail_return:
 	Send(send_buff, send_index);
 }
 
-BOOL CUser::IsValidSlotPos(model::Item* pTable, int destpos)
+bool CUser::IsValidSlotPos(model::Item* pTable, int destpos) const
 {
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	switch (pTable->Slot)
 	{
 		case 0:
 			if (destpos != RIGHTHAND
 				&& destpos != LEFTHAND)
-				return FALSE;
+				return false;
 			break;
 
 		case 1:
 		case 3:
 			if (destpos != RIGHTHAND)
-				return FALSE;
+				return false;
 			break;
 
 		case 2:
 		case 4:
 			if (destpos != LEFTHAND)
-				return FALSE;
+				return false;
 			break;
 
 		case 5:
 			if (destpos != BREAST)
-				return FALSE;
+				return false;
 			break;
 
 		case 6:
 			if (destpos != LEG)
-				return FALSE;
+				return false;
 			break;
 
 		case 7:
 			if (destpos != HEAD)
-				return FALSE;
+				return false;
 			break;
 
 		case 8:
 			if (destpos != GLOVE)
-				return FALSE;
+				return false;
 			break;
 
 		case 9:
 			if (destpos != FOOT)
-				return FALSE;
+				return false;
 			break;
 
 		case 10:
 			if (destpos != RIGHTEAR
 				&& destpos != LEFTEAR)
-				return FALSE;
+				return false;
 			break;
 
 		case 11:
 			if (destpos != NECK)
-				return FALSE;
+				return false;
 			break;
 
 		case 12:
 			if (destpos != RIGHTRING
 				&& destpos != LEFTRING)
-				return FALSE;
+				return false;
 			break;
 
 		case 13:
 			if (destpos != SHOULDER)
-				return FALSE;
+				return false;
 			break;
 
 		case 14:
 			if (destpos != WAIST)
-				return FALSE;
+				return false;
 			break;
 	}
 
-	return TRUE;
+	return true;
 }
 
 void CUser::NpcEvent(char* pBuf)
@@ -5108,7 +5123,7 @@ void CUser::BundleOpenReq(char* pBuf)
 	Send(send_buff, send_index);
 }
 
-BOOL CUser::IsValidName(char* name)
+bool CUser::IsValidName(const char* name)
 {
 	// sungyong tw
 	const char* szInvalids[] =
@@ -5131,10 +5146,10 @@ BOOL CUser::IsValidName(char* name)
 	for (int i = 0; i < _countof(szInvalids); i++)
 	{
 		if (strstr(name, szInvalids[i]) != nullptr)
-			return FALSE;
+			return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 void CUser::ItemGet(char* pBuf)
@@ -5317,7 +5332,7 @@ void CUser::ItemGet(char* pBuf)
 						if (pUser == nullptr)
 							continue;
 
-						money = count * (float) (pUser->m_pUserData->m_bLevel / (float) levelsum);
+						money = static_cast<int>(count * (float) (pUser->m_pUserData->m_bLevel / (float) levelsum));
 						pUser->m_pUserData->m_iGold += money;
 
 						send_index = 0;
@@ -5603,7 +5618,7 @@ void CUser::PartyProcess(char* pBuf)
 			if (pUser != nullptr)
 			{
 				memberid = pUser->GetSocketID();
-				PartyRequest(memberid, TRUE);
+				PartyRequest(memberid, true);
 			}
 			break;
 
@@ -5628,7 +5643,7 @@ void CUser::PartyProcess(char* pBuf)
 			if (pUser != nullptr)
 			{
 				memberid = pUser->GetSocketID();
-				PartyRequest(memberid, FALSE);
+				PartyRequest(memberid, false);
 			}
 			break;
 
@@ -5692,7 +5707,7 @@ void CUser::PartyCancel()
 }
 
 //리더에게 패킷이 온거다..
-void CUser::PartyRequest(int memberid, BOOL bCreate)
+void CUser::PartyRequest(int memberid, bool bCreate)
 {
 	int index = 0, send_index = 0, result = -1, i = 0;
 	CUser* pUser = nullptr;
@@ -6194,8 +6209,8 @@ void CUser::ExchangeAgree(char* pBuf)
 	}
 	else
 	{
-		InitExchange(TRUE);
-		pUser->InitExchange(TRUE);
+		InitExchange(true);
+		pUser->InitExchange(true);
 	}
 
 	SetByte(send_buff, WIZ_EXCHANGE, send_index);
@@ -6212,7 +6227,7 @@ void CUser::ExchangeAdd(char* pBuf)
 	model::Item* pTable = nullptr;
 	char send_buff[256] = {};
 	BYTE pos;
-	BOOL bAdd = TRUE, bGold = FALSE;
+	bool bAdd = true, bGold = false;
 
 	if (m_sExchangeUser < 0
 		|| m_sExchangeUser >= MAX_USER)
@@ -6257,7 +6272,7 @@ void CUser::ExchangeAdd(char* pBuf)
 			{
 				pExchangeItem->count += count;
 				m_pUserData->m_iGold -= count;
-				bAdd = FALSE;
+				bAdd = false;
 				break;
 			}
 		}
@@ -6279,7 +6294,7 @@ void CUser::ExchangeAdd(char* pBuf)
 				{
 					pExchangeItem->count += count;
 					m_MirrorItem[pos].sCount -= count;
-					bAdd = FALSE;
+					bAdd = false;
 					break;
 				}
 			}
@@ -6308,7 +6323,7 @@ void CUser::ExchangeAdd(char* pBuf)
 	{
 		if (pExchangeItem->itemid == ITEM_GOLD)
 		{
-			bGold = TRUE;
+			bGold = true;
 			break;
 		}
 	}
@@ -6355,7 +6370,7 @@ void CUser::ExchangeDecide()
 	CUser* pUser = nullptr;
 	_EXCHANGE_ITEM* pItem = nullptr;
 	char send_buff[256] = {};
-	BOOL bSuccess = TRUE;
+	bool bSuccess = true;
 
 	if (m_sExchangeUser < 0
 		|| m_sExchangeUser >= MAX_USER)
@@ -6405,7 +6420,7 @@ void CUser::ExchangeDecide()
 				}
 			}
 
-			bSuccess = FALSE;
+			bSuccess = false;
 		}
 
 		if (bSuccess)
@@ -6503,8 +6518,8 @@ void CUser::ExchangeDecide()
 			pUser->Send(send_buff, send_index);
 		}
 
-		InitExchange(FALSE);
-		pUser->InitExchange(FALSE);
+		InitExchange(false);
+		pUser->InitExchange(false);
 	}
 }
 
@@ -6513,15 +6528,15 @@ void CUser::ExchangeCancel()
 	int send_index = 0;
 	char send_buff[256] = {};
 	CUser* pUser = nullptr;
-	BOOL bFind = TRUE;
+	bool bFind = true;
 
 	if (m_sExchangeUser < 0
 		|| m_sExchangeUser >= MAX_USER)
-		bFind = FALSE;
+		bFind = false;
 
 	pUser = (CUser*) m_pMain->m_Iocport.m_SockArray[m_sExchangeUser];
 	if (pUser == nullptr)
-		bFind = FALSE;
+		bFind = false;
 
 	for (_EXCHANGE_ITEM* pExchangeItem : m_ExchangeItemList)
 	{
@@ -6533,7 +6548,7 @@ void CUser::ExchangeCancel()
 		}
 	}
 
-	InitExchange(FALSE);
+	InitExchange(false);
 
 	if (bFind)
 	{
@@ -6545,7 +6560,7 @@ void CUser::ExchangeCancel()
 	}
 }
 
-void CUser::InitExchange(BOOL bStart)
+void CUser::InitExchange(bool bStart)
 {
 	while (!m_ExchangeItemList.empty())
 	{
@@ -6580,20 +6595,21 @@ void CUser::InitExchange(BOOL bStart)
 	}
 }
 
-BOOL CUser::ExecuteExchange()
+bool CUser::ExecuteExchange()
 {
 	model::Item* pTable = nullptr;
 	CUser* pUser = nullptr;
 	DWORD money = 0;
-	short weight = 0, i = 0;
+	short weight = 0;
+	uint8_t i = 0;
 
 	if (m_sExchangeUser < 0
 		|| m_sExchangeUser >= MAX_USER)
-		return FALSE;
+		return false;
 
 	pUser = (CUser*) m_pMain->m_Iocport.m_SockArray[m_sExchangeUser];
 	if (pUser == nullptr)
-		return FALSE;
+		return false;
 
 	int iCount = pUser->m_ExchangeItemList.size();
 	auto Iter = pUser->m_ExchangeItemList.begin();
@@ -6601,7 +6617,7 @@ BOOL CUser::ExecuteExchange()
 	{
 		// 비러머글 크리스마스 이밴트 >.<
 		if ((*Iter)->itemid >= ITEM_NO_TRADE)
-			return FALSE;
+			return false;
 
 		if ((*Iter)->itemid == ITEM_GOLD)
 		{
@@ -6668,15 +6684,15 @@ BOOL CUser::ExecuteExchange()
 			// 인벤토리 공간 부족...
 			if (Iter != pUser->m_ExchangeItemList.end()
 				&& i == HAVE_MAX)
-				return FALSE;
+				return false;
 		}
 	}
 
 	// Too much weight! 
 	if ((weight + m_iItemWeight) > m_iMaxWeight)
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 int CUser::ExchangeDone()
@@ -6799,7 +6815,7 @@ void CUser::ClassChange(char* pBuf)
 {
 	int index = 0, classcode = 0, send_index = 0, type = 0, sub_type = 0, money = 0, old_money = 0;
 	char send_buff[128] = {};
-	BOOL bSuccess = FALSE;
+	bool bSuccess = false;
 
 	type = GetByte(pBuf, index);
 
@@ -6829,7 +6845,7 @@ void CUser::ClassChange(char* pBuf)
 	{
 		sub_type = GetByte(pBuf, index);
 
-		money = pow((m_pUserData->m_bLevel * 2), 3.4);
+		money = static_cast<int>(pow((m_pUserData->m_bLevel * 2), 3.4));
 		money = (money / 100) * 100;
 
 		if (m_pUserData->m_bLevel < 30)
@@ -6903,49 +6919,49 @@ void CUser::ClassChange(char* pBuf)
 		case KARUWARRRIOR:
 			if (classcode == BERSERKER
 				|| classcode == GUARDIAN)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case KARUROGUE:
 			if (classcode == HUNTER
 				|| classcode == PENETRATOR)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case KARUWIZARD:
 			if (classcode == SORSERER
 				|| classcode == NECROMANCER)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case KARUPRIEST:
 			if (classcode == SHAMAN
 				|| classcode == DARKPRIEST)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case ELMORWARRRIOR:
 			if (classcode == BLADE
 				|| classcode == PROTECTOR)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case ELMOROGUE:
 			if (classcode == RANGER
 				|| classcode == ASSASSIN)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case ELMOWIZARD:
 			if (classcode == MAGE
 				|| classcode == ENCHANTER)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 
 		case ELMOPRIEST:
 			if (classcode == CLERIC
 				|| classcode == DRUID)
-				bSuccess = TRUE;
+				bSuccess = true;
 			break;
 	}
 
@@ -6973,36 +6989,36 @@ void CUser::ClassChange(char* pBuf)
 	}
 }
 
-BOOL CUser::ItemEquipAvailable(model::Item* pTable)
+bool CUser::ItemEquipAvailable(const model::Item* pTable) const
 {
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	// if (pTable->m_bReqLevel > m_pUserData->m_bLevel)
-	//	return FALSE;
+	//	return false;
 
 	if (pTable->RequiredRank > m_pUserData->m_bRank)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredTitle > m_pUserData->m_bTitle)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredStrength > m_pUserData->m_bStr)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredStamina > m_pUserData->m_bSta)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredDexterity > m_pUserData->m_bDex)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredIntelligence > m_pUserData->m_bIntel)
-		return FALSE;
+		return false;
 
 	if (pTable->RequiredCharisma > m_pUserData->m_bCha)
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 void CUser::ChatTargetSelect(char* pBuf)
@@ -7057,8 +7073,8 @@ void CUser::SendUserInfo(char* temp_send, int& index)
 	SetShort(temp_send, m_pUserData->m_sMp, index);
 	SetShort(temp_send, m_sTotalHit * m_bAttackAmount / 100, index);    // 표시
 	SetShort(temp_send, m_sTotalAc + m_sACAmount, index);	// 표시
-	Setfloat(temp_send, m_sTotalHitrate, index);
-	Setfloat(temp_send, m_sTotalEvasionrate, index);
+	Setfloat(temp_send, m_fTotalHitRate, index);
+	Setfloat(temp_send, m_fTotalEvasionRate, index);
 	SetShort(temp_send, m_sPartyIndex, index);
 	SetByte(temp_send, m_pUserData->m_bAuthority, index);
 }
@@ -7324,7 +7340,7 @@ void CUser::Dead()
 void CUser::ItemWoreOut(int type, int damage)
 {
 	model::Item* pTable = nullptr;
-	int worerate = sqrt(damage / 10.0);
+	int worerate = static_cast<int>(sqrt(damage / 10.0));
 	if (worerate == 0)
 		return;
 
@@ -7475,11 +7491,11 @@ void CUser::ItemDurationChange(int slot, int maxvalue, int curvalue, int amount)
 		SetShort(send_buff, GetCurrentWeightForClient(), send_index);
 		SetShort(send_buff, m_iMaxHp, send_index);
 		SetShort(send_buff, m_iMaxMp, send_index);
-		SetShort(send_buff, m_sItemStr + m_bStrAmount, send_index);
-		SetShort(send_buff, m_sItemSta + m_bStaAmount, send_index);
-		SetShort(send_buff, m_sItemDex + m_bDexAmount, send_index);
-		SetShort(send_buff, m_sItemIntel + m_bIntelAmount, send_index);
-		SetShort(send_buff, m_sItemCham + m_bChaAmount, send_index);
+		SetShort(send_buff, m_sItemStr + m_sStrAmount, send_index);
+		SetShort(send_buff, m_sItemSta + m_sStaAmount, send_index);
+		SetShort(send_buff, m_sItemDex + m_sDexAmount, send_index);
+		SetShort(send_buff, m_sItemIntel + m_sIntelAmount, send_index);
+		SetShort(send_buff, m_sItemCham + m_sChaAmount, send_index);
 		SetShort(send_buff, m_bFireR, send_index);
 		SetShort(send_buff, m_bColdR, send_index);
 		SetShort(send_buff, m_bLightningR, send_index);
@@ -7490,8 +7506,8 @@ void CUser::ItemDurationChange(int slot, int maxvalue, int curvalue, int amount)
 		return;
 	}
 
-	curpercent = (curvalue / (double) maxvalue) * 100;
-	beforepercent = ((curvalue + amount) / (double) maxvalue) * 100;
+	curpercent = static_cast<int>((curvalue / (double) maxvalue) * 100);
+	beforepercent = static_cast<int>(((curvalue + amount) / (double) maxvalue) * 100);
 
 	curbasis = curpercent / 5;
 	beforebasis = beforepercent / 5;
@@ -7515,7 +7531,7 @@ void CUser::ItemDurationChange(int slot, int maxvalue, int curvalue, int amount)
 
 void CUser::HPTimeChange(float currenttime)
 {
-	BOOL bFlag = FALSE;
+	bool bFlag = false;
 
 	m_fHPLastTimeNormal = currenttime;
 
@@ -7700,14 +7716,14 @@ void CUser::HPTimeChangeType3(float currenttime)
 		buff_test += m_bHPDuration[j];
 
 	if (buff_test == 0)
-		m_bType3Flag = FALSE;
+		m_bType3Flag = false;
 
-	BOOL bType3Test = TRUE;
+	bool bType3Test = true;
 	for (int k = 0; k < MAX_TYPE3_REPEAT; k++)
 	{
 		if (m_bHPAmount[k] < 0)
 		{
-			bType3Test = FALSE;
+			bType3Test = false;
 			break;
 		}
 	}
@@ -7773,7 +7789,7 @@ void CUser::ItemRepair(char* pBuf)
 	else if (pos == 2)
 		quantity = pTable->Durability - m_pUserData->m_sItemArray[SLOT_MAX + slot].sDuration;
 
-	money = (int) (((pTable->BuyPrice - 10) / 10000.0f) + pow(pTable->BuyPrice, 0.75)) * quantity / (double) durability;
+	money = static_cast<int>((((pTable->BuyPrice - 10) / 10000.0f) + pow(pTable->BuyPrice, 0.75)) * quantity / (double) durability);
 	if (money > m_pUserData->m_iGold)
 		goto fail_return;
 
@@ -7888,11 +7904,11 @@ void CUser::Type4Duration(float currenttime)
 		{
 			m_sDuration7 = 0;
 			m_fStartTime7 = 0.0f;
-			m_bStrAmount = 0;
-			m_bStaAmount = 0;
-			m_bDexAmount = 0;
-			m_bIntelAmount = 0;
-			m_bChaAmount = 0;
+			m_sStrAmount = 0;
+			m_sStaAmount = 0;
+			m_sDexAmount = 0;
+			m_sIntelAmount = 0;
+			m_sChaAmount = 0;
 			buff_type = 7;
 		}
 	}
@@ -7963,14 +7979,14 @@ void CUser::Type4Duration(float currenttime)
 		buff_test += m_bType4Buff[i];
 
 	if (buff_test == 0)
-		m_bType4Flag = FALSE;
+		m_bType4Flag = false;
 
-	BOOL bType4Test = TRUE;
+	bool bType4Test = true;
 	for (int j = 0; j < MAX_TYPE4_BUFF; j++)
 	{
 		if (m_bType4Buff[j] == 1)
 		{
-			bType4Test = FALSE;
+			bType4Test = false;
 			break;
 		}
 	}
@@ -8014,23 +8030,23 @@ BYTE CUser::ItemCountChange(int itemid, int type, int amount)
 		if (m_pUserData->m_sItemArray[i].nNum != itemid)
 			continue;
 
-		if (pTable->RequiredDexterity > (m_pUserData->m_bDex + m_sItemDex + m_bDexAmount)
+		if (pTable->RequiredDexterity > (m_pUserData->m_bDex + m_sItemDex + m_sDexAmount)
 			&& pTable->RequiredDexterity != 0)
 			return result;
 
-		if (pTable->RequiredStrength > (m_pUserData->m_bStr + m_sItemStr + m_bStrAmount)
+		if (pTable->RequiredStrength > (m_pUserData->m_bStr + m_sItemStr + m_sStrAmount)
 			&& pTable->RequiredStrength != 0)
 			return result;
 
-		if (pTable->RequiredStamina > (m_pUserData->m_bSta + m_sItemSta + m_bStaAmount)
+		if (pTable->RequiredStamina > (m_pUserData->m_bSta + m_sItemSta + m_sStaAmount)
 			&& pTable->RequiredStamina != 0)
 			return result;
 
-		if (pTable->RequiredIntelligence > (m_pUserData->m_bIntel + m_sItemIntel + m_bIntelAmount)
+		if (pTable->RequiredIntelligence > (m_pUserData->m_bIntel + m_sItemIntel + m_sIntelAmount)
 			&& pTable->RequiredIntelligence != 0)
 			return result;
 
-		if (pTable->RequiredCharisma > (m_pUserData->m_bCha + m_sItemCham + m_bChaAmount)
+		if (pTable->RequiredCharisma > (m_pUserData->m_bCha + m_sItemCham + m_sChaAmount)
 			&& pTable->RequiredCharisma != 0)
 			return result;
 
@@ -8634,11 +8650,11 @@ void CUser::InitType4()
 	m_sMaxHPAmount = 0;
 	m_bHitRateAmount = 100;
 	m_sAvoidRateAmount = 100;
-	m_bStrAmount = 0;
-	m_bStaAmount = 0;
-	m_bDexAmount = 0;
-	m_bIntelAmount = 0;
-	m_bChaAmount = 0;
+	m_sStrAmount = 0;
+	m_sStaAmount = 0;
+	m_sDexAmount = 0;
+	m_sIntelAmount = 0;
+	m_sChaAmount = 0;
 	m_bFireRAmount = 0;
 	m_bColdRAmount = 0;
 	m_bLightningRAmount = 0;
@@ -8661,11 +8677,40 @@ void CUser::InitType4()
 	for (int h = 0; h < MAX_TYPE4_BUFF; h++)
 		m_bType4Buff[h] = 0;
 
-	m_bType4Flag = FALSE;
+	m_bType4Flag = false;
+}
+
+int CUser::GetNumberOfEmptySlots() const
+{
+	int emptySlotCount = 0;
+
+	for (int i = SLOT_MAX; i < SLOT_MAX + HAVE_MAX; i++)
+	{
+		const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
+		if (item.nNum == 0)
+			++emptySlotCount;
+	}
+
+	return emptySlotCount;
+}
+
+bool CUser::CheckExistEvent(int16_t questId, uint8_t questState) const
+{
+	for (const _USER_QUEST& quest : m_pUserData->m_quests)
+	{
+		if (quest.sQuestID != questId)
+			continue;
+
+		// Quest found - state must match
+		return (quest.byQuestState == questState);
+	}
+
+	// Quest not found - only return true if we're checking if it doesn't exist
+	return (questState == QUEST_STATE_NOT_STARTED);
 }
 
 // item 먹을때 비어잇는 슬롯을 찾아야되...
-int CUser::GetEmptySlot(int itemid, int bCountable)
+int CUser::GetEmptySlot(int itemid, int bCountable) const
 {
 	int pos = 255, i = 0;
 
@@ -8923,7 +8968,7 @@ void CUser::AllSkillPointChange()
 	BYTE type = 0;    // 0:돈이 부족, 1:성공, 2:초기화할 스킬이 없을때..
 	char send_buff[128] = {};
 
-	temp_value = pow((m_pUserData->m_bLevel * 2), 3.4);
+	temp_value = static_cast<int>(pow((m_pUserData->m_bLevel * 2), 3.4));
 	temp_value = (temp_value / 100) * 100;
 
 	if (m_pUserData->m_bLevel < 30)	
@@ -9010,7 +9055,7 @@ void CUser::AllPointChange()
 	if (m_pUserData->m_bLevel > 80)
 		goto fail_return;
 
-	temp_money = pow((m_pUserData->m_bLevel * 2), 3.4);
+	temp_money = static_cast<int>(pow((m_pUserData->m_bLevel * 2), 3.4));
 	temp_money = (temp_money / 100) * 100;
 	if (m_pUserData->m_bLevel < 30)
 		temp_money = static_cast<int>(temp_money * 0.4);
@@ -9297,7 +9342,7 @@ void CUser::GoldChange(short tid, int gold)
 					if (pUser == nullptr)
 						continue;
 
-					money = count * (float) (pUser->m_pUserData->m_bLevel / (float) levelsum);
+					money = static_cast<int>(count * (float) (pUser->m_pUserData->m_bLevel / (float) levelsum));
 					pUser->m_pUserData->m_iGold += money;
 
 					// Now the party members...
@@ -9417,7 +9462,7 @@ void CUser::SelectWarpList(char* pBuf)
 
 	if (m_pUserData->m_bZone == pWarp->sZone)
 	{
-		m_bZoneChangeSameZone = TRUE;
+		m_bZoneChangeSameZone = true;
 
 		SetByte(send_buff, WIZ_WARP_LIST, send_index);
 		SetByte(send_buff, type, send_index);
@@ -9493,7 +9538,7 @@ void CUser::ServerChangeOk(char* pBuf)
 	ZoneChange(pWarp->sZone, pWarp->fX + rx, pWarp->fZ + rz);
 }
 
-BOOL CUser::GetWarpList(int warp_group)
+bool CUser::GetWarpList(int warp_group)
 {
 	int warpid = 0, send_index = 0;	// 헤더와 카운트를 나중에 패킹...
 	int zoneindex = -1, temp_index = 0, count = 0;
@@ -9505,7 +9550,7 @@ BOOL CUser::GetWarpList(int warp_group)
 
 	C3DMap* pCurrentMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pCurrentMap == nullptr)
-		return FALSE;
+		return false;
 
 	for (const auto& [_, pWarp] : pCurrentMap->m_WarpArray)
 	{
@@ -9542,7 +9587,7 @@ BOOL CUser::GetWarpList(int warp_group)
 	SetString(send_buff, buff, send_index, temp_index);
 	Send(send_buff, temp_index);
 
-	return TRUE;
+	return true;
 }
 
 void CUser::InitType3()
@@ -9558,21 +9603,21 @@ void CUser::InitType3()
 		m_sSourceID[i] = -1;
 	}
 
-	m_bType3Flag = FALSE;
+	m_bType3Flag = false;
 }
 
-BOOL CUser::BindObjectEvent(short objectindex, short nid)
+bool CUser::BindObjectEvent(short objectindex, short nid)
 {
 	int send_index = 0, result = 0;
 	char send_buff[128] = {};
 
 	C3DMap* pMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pMap == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pEvent = pMap->GetObjectEvent(objectindex);
 	if (pEvent == nullptr)
-		return FALSE;
+		return false;
 
 	if (pEvent->sBelong != 0
 		&& pEvent->sBelong != m_pUserData->m_bNation)
@@ -9590,35 +9635,36 @@ BOOL CUser::BindObjectEvent(short objectindex, short nid)
 	SetByte(send_buff, result, send_index);
 	Send(send_buff, send_index);
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::GateObjectEvent(short objectindex, short nid)
+bool CUser::GateObjectEvent(short objectindex, short nid)
 {
 	// 포인터 참조하면 안됨
 	if (!m_pMain->m_bPointCheckFlag)
-		return FALSE;
+		return false;
 
 	int send_index = 0, result = 0;
 	char send_buff[128] = {};
 
 	C3DMap* pMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pMap == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pEvent = pMap->GetObjectEvent(objectindex);
 	if (pEvent == nullptr)
-		return FALSE;
+		return false;
 
 	CNpc* pNpc = m_pMain->m_NpcMap.GetData(nid);
 	if (pNpc == nullptr)
-		return FALSE;
+		return false;
 
 	if (pNpc->m_tNpcType == NPC_GATE
 		|| pNpc->m_tNpcType == NPC_PHOENIX_GATE
 		|| pNpc->m_tNpcType == NPC_SPECIAL_GATE)
 	{
-		pNpc->m_byGateOpen = !pNpc->m_byGateOpen;
+		// NOTE: This can have other states; they should ideally be defined.
+		pNpc->m_byGateOpen = pNpc->m_byGateOpen == 0 ? true : false;
 		result = 1;
 
 		memset(send_buff, 0, sizeof(send_buff));
@@ -9642,33 +9688,33 @@ BOOL CUser::GateObjectEvent(short objectindex, short nid)
 	SetByte(send_buff, pNpc->m_byGateOpen, send_index);
 	m_pMain->Send_Region(send_buff, send_index, m_pUserData->m_bZone, m_RegionX, m_RegionZ, nullptr, false);
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::GateLeverObjectEvent(short objectindex, short nid)
+bool CUser::GateLeverObjectEvent(short objectindex, short nid)
 {
 	// 포인터 참조하면 안됨
 	if (!m_pMain->m_bPointCheckFlag)
-		return FALSE;
+		return false;
 
 	int send_index = 0, result = 0;
 	char send_buff[128] = {};
 
 	C3DMap* pMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pMap == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pEvent = pMap->GetObjectEvent(objectindex);
 	if (pEvent == nullptr)
-		return FALSE;
+		return false;
 
 	CNpc* pNpc = m_pMain->m_NpcMap.GetData(nid);
 	if (pNpc == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pGateEvent = pMap->GetObjectEvent(pEvent->sControlNpcID);
 	if (pGateEvent == nullptr)
-		return FALSE;
+		return false;
 
 	CNpc* pGateNpc = m_pMain->GetNpcPtr(pEvent->sControlNpcID, m_pUserData->m_bZone);
 	if (pGateNpc == nullptr)
@@ -9685,10 +9731,11 @@ BOOL CUser::GateLeverObjectEvent(short objectindex, short nid)
 				&& pNpc->m_byGroup != 0)
 			{
 				if (pNpc->m_byGateOpen == 0)
-					return FALSE;
+					return false;
 			}
 
-			pNpc->m_byGateOpen = !pNpc->m_byGateOpen;
+			// NOTE: This can have other states; ideally they should be defined.
+			pNpc->m_byGateOpen = pNpc->m_byGateOpen == 0 ? true : false;
 			result = 1;
 			memset(send_buff, 0, sizeof(send_buff));
 			send_index = 0;
@@ -9730,33 +9777,33 @@ BOOL CUser::GateLeverObjectEvent(short objectindex, short nid)
 	SetByte(send_buff, pNpc->m_byGateOpen, send_index);
 	m_pMain->Send_Region(send_buff, send_index, m_pUserData->m_bZone, m_RegionX, m_RegionZ, nullptr, false);
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::FlagObjectEvent(short objectindex, short nid)
+bool CUser::FlagObjectEvent(short objectindex, short nid)
 {
 	// 포인터 참조하면 안됨
 	if (!m_pMain->m_bPointCheckFlag)
-		return FALSE;
+		return false;
 
 	int send_index = 0, result = 0;
 	char send_buff[128] = {};
 
 	C3DMap* pMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pMap == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pEvent = pMap->GetObjectEvent(objectindex);
 	if (pEvent == nullptr)
-		return FALSE;
+		return false;
 
 	CNpc* pNpc = m_pMain->m_NpcMap.GetData(nid);
 	if (pNpc == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pFlagEvent = pMap->GetObjectEvent(pEvent->sControlNpcID);
 	if (pFlagEvent == nullptr)
-		return FALSE;
+		return false;
 
 	CNpc* pFlagNpc = m_pMain->GetNpcPtr(pEvent->sControlNpcID, m_pUserData->m_bZone);
 	if (pFlagNpc == nullptr)
@@ -9770,10 +9817,10 @@ BOOL CUser::FlagObjectEvent(short objectindex, short nid)
 			|| pFlagNpc->m_tNpcType == NPC_SPECIAL_GATE)
 		{
 			if (m_pMain->m_bVictory > 0)
-				return FALSE;
+				return false;
 
 			if (pNpc->m_byGateOpen == 0)
-				return FALSE;
+				return false;
 
 			// if (pNpc->m_byGroup != 0
 			//	&& pFlagNpc->m_byGroup != 0)
@@ -9836,36 +9883,36 @@ BOOL CUser::FlagObjectEvent(short objectindex, short nid)
 	SetByte(send_buff, pNpc->m_byGateOpen, send_index);
 	m_pMain->Send_Region(send_buff, send_index, m_pUserData->m_bZone, m_RegionX, m_RegionZ, nullptr, false);
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::WarpListObjectEvent(short objectindex, short nid)
+bool CUser::WarpListObjectEvent(short objectindex, short nid)
 {
 	int send_index = 0, result = 0;
 	char send_buff[128] = {};
 
 	C3DMap* pMap = m_pMain->GetMapByIndex(m_iZoneIndex);
 	if (pMap == nullptr)
-		return FALSE;
+		return false;
 
 	_OBJECT_EVENT* pEvent = pMap->GetObjectEvent(objectindex);
 	if (pEvent == nullptr)
-		return FALSE;
+		return false;
 
 	// We cannot use warp gates belonging to another nation.
 	if (pEvent->sBelong != 0
 		&& pEvent->sBelong != m_pUserData->m_bNation)
-		return FALSE;
+		return false;
 
 	// We cannot use warp gates when invading.
 	if (m_pUserData->m_bNation != m_pUserData->m_bZone
 		&& m_pUserData->m_bZone <= ZONE_ELMORAD)
-		return FALSE;
+		return false;
 
 	if (!GetWarpList(pEvent->sControlNpcID))
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
 void CUser::ObjectEvent(char* pBuf)
@@ -11108,9 +11155,7 @@ void CUser::ClientEvent(char* pBuf)
 			break;
 
 		case NPC_TELEPORT_GATE:
-#if 0 // TODO:
-			eventid = m_pMain->GetEventTrigger(pNpc->m_tNpcType, pNpc->m_sTrapNumber);
-#endif
+			eventid = m_pMain->GetEventTrigger(pNpc->m_tNpcType, pNpc->m_byTrapNumber);
 			if (eventid == -1)
 				return;
 			break;
@@ -11389,106 +11434,219 @@ void CUser::ClientEvent(char* pBuf)
 
 // This part reads all the 'A' parts and checks if the
 // requirements for the 'E' parts are met.
-BOOL CUser::CheckEventLogic(EVENT_DATA* pEventData)	
+bool CUser::CheckEventLogic(const EVENT_DATA* pEventData)
 {
 	if (pEventData == nullptr)
-		return FALSE;
+		return false;
 
-	BOOL bExact = TRUE;
+	bool bExact = true;
 
 	for (LOGIC_ELSE* pLE : pEventData->m_arLogicElse)
 	{
-		bExact = FALSE;
+		bExact = false;
 
 		if (pLE == nullptr)
-			return FALSE;
+			return false;
 
 		switch (pLE->m_LogicElse)
 		{
 			case LOGIC_CHECK_UNDER_WEIGHT:
 				if (pLE->m_LogicElseInt[0] + m_iItemWeight >= m_iMaxWeight)
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_CHECK_OVER_WEIGHT:
 				if (pLE->m_LogicElseInt[0] + m_iItemWeight < m_iMaxWeight)
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_CHECK_SKILL_POINT:
 				if (CheckSkillPoint(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1], pLE->m_LogicElseInt[2]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 
-			case LOGIC_EXIST_ITEM:
+			case LOGIC_CHECK_EXIST_ITEM:
 				if (CheckExistItem(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
-					bExact = TRUE;
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NOEXIST_ITEM:
+				if (!CheckExistItem(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
+					bExact = true;
 				break;
 
 			case LOGIC_CHECK_CLASS:
 				if (CheckClass(
 					pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1], pLE->m_LogicElseInt[2],
 					pLE->m_LogicElseInt[3], pLE->m_LogicElseInt[4], pLE->m_LogicElseInt[5]))
-					bExact = TRUE;
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NOCLASS:
+				if (!CheckClass(
+					pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1], pLE->m_LogicElseInt[2],
+					pLE->m_LogicElseInt[3], pLE->m_LogicElseInt[4], pLE->m_LogicElseInt[5]))
+					bExact = true;
 				break;
 
 			case LOGIC_CHECK_WEIGHT:
 				if (!CheckWeight(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 	// 비러머글 복권 >.<		
 			case LOGIC_CHECK_EDITBOX:
 				if (!CheckEditBox())
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_RAND:
 				if (CheckRandom(pLE->m_LogicElseInt[0]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 	//
 	// 비러머글 엑셀 >.<
-			case LOGIC_CHECK_LEVEL:
+			case LOGIC_CHECK_LV:
 				if (m_pUserData->m_bLevel >= pLE->m_LogicElseInt[0]
 					&& m_pUserData->m_bLevel <= pLE->m_LogicElseInt[1])
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_NOEXIST_COM_EVENT:
 				if (!ExistComEvent(pLE->m_LogicElseInt[0]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_EXIST_COM_EVENT:
 				if (ExistComEvent(pLE->m_LogicElseInt[0]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_HOWMUCH_ITEM:
 				if (CheckItemCount(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1], pLE->m_LogicElseInt[2]))
-					bExact = TRUE;
+					bExact = true;
 				break;
 
 			case LOGIC_CHECK_NOAH:
 				if (m_pUserData->m_iGold >= pLE->m_LogicElseInt[0] && m_pUserData->m_iGold <= pLE->m_LogicElseInt[1])
-					bExact = TRUE;
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NATION:
+				if (m_pUserData->m_bNation == pLE->m_LogicElseInt[0])
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_LOYALTY:
+				if (m_pUserData->m_iLoyalty >= pLE->m_LogicElseInt[0] && m_pUserData->m_iLoyalty <= pLE->m_LogicElseInt[1])
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_CHIEF:
+				if (m_pUserData->m_bFame == CHIEF)
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NO_CHIEF:
+				if (m_pUserData->m_bFame != CHIEF)
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_CLAN_GRADE:
+				if (CheckClanGrade(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_MIDDLE_STATUE_CAPTURE:
+				if (CheckMiddleStatueCapture())
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_MIDDLE_STATUE_NOCAPTURE:
+				if (!CheckMiddleStatueCapture())
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_EMPTY_SLOT:
+				if (GetNumberOfEmptySlots() >= pLE->m_LogicElseInt[0])
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_MONSTER_CHALLENGE_TIME:
+				if (m_pMain->_monsterChallengeActiveType == pLE->m_LogicElseInt[0]
+					&& m_pMain->_monsterChallengeState != 0)
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_EXIST_EVENT:
+				if (CheckExistEvent(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NOEXIST_EVENT:
+				if (!CheckExistEvent(pLE->m_LogicElseInt[0], pLE->m_LogicElseInt[1]))
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_ITEMCHANGE_NUM:
+				if (m_byLastExchangeNum == pLE->m_LogicElseInt[0])
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_KNIGHT:
+				if (CheckKnight())
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_NO_CASTLE:
+				if (m_pUserData->m_bKnights != m_pMain->m_KnightsSiegeWar._masterKnights
+					|| m_pMain->m_KnightsSiegeWar._masterKnights == 0
+					|| m_pUserData->m_bFame != CHIEF)
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_CASTLE:
+				if (m_pUserData->m_bKnights == m_pMain->m_KnightsSiegeWar._masterKnights
+					&& m_pMain->m_KnightsSiegeWar._masterKnights > 0
+					&& m_pUserData->m_bFame == CHIEF)
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_MONSTER_CHALLENGE_USERCOUNT:
+				if (m_pMain->_monsterChallengePlayerCount > pLE->m_LogicElseInt[0])
+					bExact = true; // NOTE: officially this returns true, ending check processing immediately
+				break;
+
+			case LOGIC_CHECK_BEEF_ROAST_KARUS_VICTORY:
+				if (m_pMain->_beefRoastVictoryType == BEEF_ROAST_VICTORY_KARUS)
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_BEEF_ROAST_ELMORAD_VICTORY:
+				if (m_pMain->_beefRoastVictoryType == BEEF_ROAST_VICTORY_ELMORAD)
+					bExact = true;
+				break;
+
+			case LOGIC_CHECK_BEEF_ROAST_NO_VICTORY:
+				if (m_pMain->_beefRoastVictoryType != BEEF_ROAST_VICTORY_KARUS
+					&& m_pMain->_beefRoastVictoryType != BEEF_ROAST_VICTORY_ELMORAD)
+					bExact = true;
 				break;
 
 			default:
-				return FALSE;
+				return false;
 		}
 
 		// OR 조건일 경우 bExact가 TRUE이면 전체가 TRUE이다
 		if (!pLE->m_bAnd)
 		{
 			if (bExact)
-				return TRUE;
+				return true;
 		}
 		// AND 조건일 경우 bExact가 FALSE이면 전체가 FALSE이다
 		else
 		{
 			if (!bExact)
-				return FALSE;
+				return false;
 		}
 	}
 
@@ -11496,7 +11654,7 @@ BOOL CUser::CheckEventLogic(EVENT_DATA* pEventData)
 }
 
 // This part executes all the 'E' lines!
-BOOL CUser::RunNpcEvent(CNpc* pNpc, EXEC* pExec)
+bool CUser::RunNpcEvent(CNpc* pNpc, const EXEC* pExec)
 {
 	switch (pExec->m_Exec)
 	{
@@ -11527,19 +11685,19 @@ BOOL CUser::RunNpcEvent(CNpc* pNpc, EXEC* pExec)
 			for (EXEC* pExec : pEventData->m_arExec)
 			{
 				if (!RunNpcEvent(pNpc, pExec))
-					return FALSE;
+					return false;
 			}
 		}
 		break;
 
 		case EXEC_GIVE_ITEM:
 			if (!GiveItem(pExec->m_ExecInt[0], pExec->m_ExecInt[1]))
-				return FALSE;
+				return false;
 			break;
 
 		case EXEC_ROB_ITEM:
 			if (!RobItem(pExec->m_ExecInt[0], pExec->m_ExecInt[1]))
-				return FALSE;
+				return false;
 			break;
 
 		//	비러머글 복권 >.<
@@ -11561,17 +11719,17 @@ BOOL CUser::RunNpcEvent(CNpc* pNpc, EXEC* pExec)
 			break;
 	//
 		case EXEC_RETURN:
-			return FALSE;
+			return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::RunEvent(EVENT_DATA* pEventData)
+bool CUser::RunEvent(const EVENT_DATA* pEventData)
 {
 	for (EXEC* pExec : pEventData->m_arExec)
 	{
-		if (!pExec)
+		if (pExec == nullptr)
 			break;
 
 		switch (pExec->m_Exec)
@@ -11601,18 +11759,18 @@ BOOL CUser::RunEvent(EVENT_DATA* pEventData)
 					break;
 
 				if (!RunEvent(pEventData))
-					return FALSE;
+					return false;
 			}
 			break;
 
 			case EXEC_GIVE_ITEM:
 				if (!GiveItem(pExec->m_ExecInt[0], pExec->m_ExecInt[1]))
-					return FALSE;
+					return false;
 				break;
 
 			case EXEC_ROB_ITEM:
 				if (!RobItem(pExec->m_ExecInt[0], pExec->m_ExecInt[1]))
-					return FALSE;
+					return false;
 				break;
 
 //	비러머글 복권 >.<
@@ -11638,12 +11796,13 @@ BOOL CUser::RunEvent(EVENT_DATA* pEventData)
 				break;
 //
 			case EXEC_RETURN:
-				return FALSE;
+				return false;
 		}
 	}
 
-	return TRUE;
+	return true;
 }
+
 // 정애씨가 고생하면서 해주신 퀘스트 부분 끝
 void CUser::TestPacket(char* pBuf)
 {
@@ -11748,24 +11907,24 @@ bool CUser::GoldLose(int gold)
 	return true;
 }
 
-BOOL CUser::CheckSkillPoint(BYTE skillnum, BYTE min, BYTE max)
+bool CUser::CheckSkillPoint(BYTE skillnum, BYTE min, BYTE max) const
 {
 	if (skillnum < 5
 		|| skillnum > 8)
-		return FALSE;
+		return false;
 
 	if (m_pUserData->m_bstrSkill[skillnum] < min
 		|| m_pUserData->m_bstrSkill[skillnum] > max)
-		return FALSE;
+		return false;
 
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::CheckWeight(int itemid, short count)
+bool CUser::CheckWeight(int itemid, short count) const
 {
 	model::Item* pTable = m_pMain->m_ItemTableMap.GetData(itemid);
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	if (pTable->Countable == 0)
 	{
@@ -11774,7 +11933,7 @@ BOOL CUser::CheckWeight(int itemid, short count)
 		{
 			// Now check empty slots :P
 			if (GetEmptySlot(itemid, 0) != 0xFF)
-				return TRUE;
+				return true;
 		}
 	}
 	else
@@ -11784,19 +11943,19 @@ BOOL CUser::CheckWeight(int itemid, short count)
 		{
 			// Now check empty slots :P
 			if (GetEmptySlot(itemid, pTable->Countable) != 0xFF)
-				return TRUE;
+				return true;
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOL CUser::CheckExistItem(int itemid, short count)
+bool CUser::CheckExistItem(int itemid, short count) const
 {
 	// This checks if such an item exists.
 	model::Item* pTable = m_pMain->m_ItemTableMap.GetData(itemid);
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	// Check every slot in this case.....
 	for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
@@ -11804,21 +11963,21 @@ BOOL CUser::CheckExistItem(int itemid, short count)
 		if (m_pUserData->m_sItemArray[i].nNum != itemid)
 			continue;
 
-		// Non-countable item. Automatically return TRUE
+		// Non-countable item. Automatically return true
 		if (pTable->Countable == 0)
-			return TRUE;
+			return true;
 
 		// Countable items. Make sure the amount is same or higher.
 		if (m_pUserData->m_sItemArray[i].sCount >= count)
-			return TRUE;
+			return true;
 
-		return FALSE;
+		return false;
 	}
 
-	return FALSE;
+	return false;
 }
 
-BOOL CUser::RobItem(int itemid, short count)
+bool CUser::RobItem(int itemid, short count)
 {
 	int send_index = 0;
 	char send_buff[256] = {};
@@ -11827,7 +11986,7 @@ BOOL CUser::RobItem(int itemid, short count)
 	// This checks if such an item exists.
 	model::Item* pTable = m_pMain->m_ItemTableMap.GetData(itemid);
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	int i;
 	for (i = SLOT_MAX; i < SLOT_MAX + HAVE_MAX * type; i++)
@@ -11846,7 +12005,7 @@ BOOL CUser::RobItem(int itemid, short count)
 
 		// Remove the number of items from the inventory (Countable Items)
 		if (m_pUserData->m_sItemArray[i].sCount < count)
-			return FALSE;
+			return false;
 
 		m_pUserData->m_sItemArray[i].sCount -= count;
 		if (m_pUserData->m_sItemArray[i].sCount == 0)
@@ -11858,7 +12017,7 @@ BOOL CUser::RobItem(int itemid, short count)
 		goto success_return;
 	}
 
-	return FALSE;
+	return false;
 
 success_return:
 	SendItemWeight();	// Change weight first :)
@@ -11869,10 +12028,10 @@ success_return:
 	SetDWORD(send_buff, itemid, send_index);	// The ID of item.
 	SetDWORD(send_buff, m_pUserData->m_sItemArray[i].sCount, send_index);
 	Send(send_buff, send_index);
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::GiveItem(int itemid, short count)
+bool CUser::GiveItem(int itemid, short count)
 {
 	int pos = 255;
 	int send_index = 0;
@@ -11881,25 +12040,25 @@ BOOL CUser::GiveItem(int itemid, short count)
 	// This checks if such an item exists.
 	model::Item* pTable = m_pMain->m_ItemTableMap.GetData(itemid);
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
 	pos = GetEmptySlot(itemid, pTable->Countable);
 
 	// No empty slots.
 	if (pos == 0xFF)
-		return FALSE;
+		return false;
 
 	// Common Item
 	if (pos >= HAVE_MAX)
-		return FALSE;
+		return false;
 
 	if (m_pUserData->m_sItemArray[SLOT_MAX + pos].nNum != 0)
 	{
 		if (pTable->Countable != 1)
-			return FALSE;
+			return false;
 			
 		if (m_pUserData->m_sItemArray[SLOT_MAX + pos].nNum != itemid)
-			return FALSE;
+			return false;
 	}
 
 	/*	이건 필요할 때 주석 빼도록....
@@ -11907,13 +12066,13 @@ BOOL CUser::GiveItem(int itemid, short count)
 	if (pTable->Countable != 0)
 	{
 		if (((pTable->Weight * count) + m_iItemWeight) > m_iMaxWeight)
-			return FALSE;
+			return false;
 	}
 	// Check weight of non-countable item.
 	else
 	{
 		if ((pTable->Weight + m_iItemWeight) > m_iMaxWeight)
-			return FALSE;
+			return false;
 	}*/
 
 	// Add item to inventory.
@@ -11943,30 +12102,30 @@ BOOL CUser::GiveItem(int itemid, short count)
 	SetDWORD(send_buff, itemid, send_index);	// The ID of item.
 	SetDWORD(send_buff, m_pUserData->m_sItemArray[SLOT_MAX + pos].sCount, send_index);
 	Send(send_buff, send_index);
-	return TRUE;
+	return true;
 }
 
-BOOL CUser::CheckClass(short class1, short class2, short class3, short class4, short class5, short class6)
+bool CUser::CheckClass(short class1, short class2, short class3, short class4, short class5, short class6) const
 {
 	if (JobGroupCheck(class1))
-		return TRUE;
+		return true;
 
 	if (JobGroupCheck(class2))
-		return TRUE;
+		return true;
 
 	if (JobGroupCheck(class3))
-		return TRUE;
+		return true;
 
 	if (JobGroupCheck(class4))
-		return TRUE;
+		return true;
 
 	if (JobGroupCheck(class5))
-		return TRUE;
+		return true;
 
 	if (JobGroupCheck(class6))
-		return TRUE;
+		return true;
 
-	return FALSE;
+	return false;
 }
 
 // Receive menu reply from client.
@@ -12009,7 +12168,7 @@ fail_return:
 //
 }
 
-void CUser::SendNpcSay(EXEC* pExec)
+void CUser::SendNpcSay(const EXEC* pExec)
 {
 	int send_index = 0;
 	char send_buff[128] = {};
@@ -12026,7 +12185,7 @@ void CUser::SendNpcSay(EXEC* pExec)
 	Send(send_buff, send_index);
 }
 
-void CUser::SelectMsg(EXEC* pExec)
+void CUser::SelectMsg(const EXEC* pExec)
 {
 	int i, chat, send_index = 0;
 	char send_buff[128] = {};
@@ -12064,7 +12223,7 @@ void CUser::SelectMsg(EXEC* pExec)
 //
 }
 
-BOOL CUser::JobGroupCheck(short jobgroupid)
+bool CUser::JobGroupCheck(short jobgroupid) const
 {
 	// Check job groups
 	if (jobgroupid < 100)
@@ -12078,7 +12237,7 @@ BOOL CUser::JobGroupCheck(short jobgroupid)
 					|| m_pUserData->m_sClass == 201
 					|| m_pUserData->m_sClass == 205
 					|| m_pUserData->m_sClass == 206)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_ROGUE:
@@ -12088,7 +12247,7 @@ BOOL CUser::JobGroupCheck(short jobgroupid)
 					|| m_pUserData->m_sClass == 202
 					|| m_pUserData->m_sClass == 207
 					|| m_pUserData->m_sClass == 208)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_MAGE:
@@ -12098,7 +12257,7 @@ BOOL CUser::JobGroupCheck(short jobgroupid)
 					|| m_pUserData->m_sClass == 203
 					|| m_pUserData->m_sClass == 209
 					|| m_pUserData->m_sClass == 210)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_CLERIC:
@@ -12108,55 +12267,55 @@ BOOL CUser::JobGroupCheck(short jobgroupid)
 					|| m_pUserData->m_sClass == 204
 					|| m_pUserData->m_sClass == 211
 					|| m_pUserData->m_sClass == 212)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_ATTACK_WARRIOR:
 				if (m_pUserData->m_sClass == 105
 					|| m_pUserData->m_sClass == 205)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_DEFENSE_WARRIOR:
 				if (m_pUserData->m_sClass == 106
 					|| m_pUserData->m_sClass == 206)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_ARCHERER:
 				if (m_pUserData->m_sClass == 107
 					|| m_pUserData->m_sClass == 207)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_ASSASSIN:
 				if (m_pUserData->m_sClass == 108
 					|| m_pUserData->m_sClass == 208)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_ATTACK_MAGE:
 				if (m_pUserData->m_sClass == 109
 					|| m_pUserData->m_sClass == 209)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_PET_MAGE:
 				if (m_pUserData->m_sClass == 110
 					|| m_pUserData->m_sClass == 210)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_HEAL_CLERIC:
 				if (m_pUserData->m_sClass == 111
 					|| m_pUserData->m_sClass == 211)
-					return TRUE;
+					return true;
 				break;
 
 			case JOB_GROUP_CURSE_CLERIC:
 				if (m_pUserData->m_sClass == 112
 					|| m_pUserData->m_sClass == 212)
-					return TRUE;
+					return true;
 				break;
 		}
 	}
@@ -12164,10 +12323,10 @@ BOOL CUser::JobGroupCheck(short jobgroupid)
 	else
 	{
 		if (m_pUserData->m_sClass == jobgroupid)
-			return TRUE;
+			return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 // 잉...성용씨 미워!!! 흑흑흑 ㅠ.ㅠ
@@ -12198,7 +12357,7 @@ void CUser::TrapProcess()
 	m_fLastTrapAreaTime = currenttime;
 }
 
-void CUser::KickOutZoneUser(BOOL home)
+void CUser::KickOutZoneUser(bool home)
 {
 	int regene_event = 0;
 
@@ -12234,11 +12393,11 @@ void CUser::KickOutZoneUser(BOOL home)
 
 		//TRACE(_T("KickOutZoneUser - user=%hs, regene_event=%d\n"), m_pUserData->m_id, regene_event);
 
-		int delta_x = myrand(0, pRegene->fRegeneAreaX);
-		int delta_z = myrand(0, pRegene->fRegeneAreaZ);
+		int delta_x = myrand(0, static_cast<int>(pRegene->fRegeneAreaX));
+		int delta_z = myrand(0, static_cast<int>(pRegene->fRegeneAreaZ));
 
-		int x = pRegene->fRegenePosX + delta_x;
-		int y = pRegene->fRegenePosZ + delta_z;
+		float x = pRegene->fRegenePosX + delta_x;
+		float y = pRegene->fRegenePosZ + delta_z;
 
 		ZoneChange(pMap->m_nZoneNumber, x, y);
 	}
@@ -12285,27 +12444,27 @@ void CUser::NativeZoneReturn()
 
 	if (m_pUserData->m_bNation == KARUS)
 	{
-		m_pUserData->m_curx = pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX);
-		m_pUserData->m_curz = pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ);
+		m_pUserData->m_curx = static_cast<float>(pHomeInfo->KarusZoneX + myrand(0, pHomeInfo->KarusZoneLX));
+		m_pUserData->m_curz = static_cast<float>(pHomeInfo->KarusZoneZ + myrand(0, pHomeInfo->KarusZoneLZ));
 	}
 	else
 	{
-		m_pUserData->m_curx = pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX);
-		m_pUserData->m_curz = pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ);
+		m_pUserData->m_curx = static_cast<float>(pHomeInfo->ElmoZoneX + myrand(0, pHomeInfo->ElmoZoneLX));
+		m_pUserData->m_curz = static_cast<float>(pHomeInfo->ElmoZoneZ + myrand(0, pHomeInfo->ElmoZoneLZ));
 	}
 }
 
-BOOL CUser::CheckEditBox()
+bool CUser::CheckEditBox() const
 {
 	std::string id = fmt::format_db_resource(IDS_COUPON_NOTEPAD_ID);
 	if (id == m_strCouponId)
-		return TRUE;
+		return true;
 
 	id = fmt::format_db_resource(IDS_COUPON_POSTIT_ID);
 	if (id == m_strCouponId)
-		return TRUE;
+		return true;
 
-	return FALSE;
+	return false;
 }
 
 void CUser::OpenEditBox(int message, int event)
@@ -12335,11 +12494,11 @@ void CUser::OpenEditBox(int message, int event)
 		//goto fail_return;
 	}
 /*
-	return TRUE;
+	return true;
 
 fail_return:
 	send_index = 0;
-	return FALSE;
+	return false;
 
 	m_iEditBoxEvent = event;	// What will the next event be when an answer is given?
 
@@ -12349,17 +12508,14 @@ fail_return:
 	Send(send_buf, send_index);*/
 }
 
-BOOL CUser::CheckRandom(short percent)
+bool CUser::CheckRandom(short percent) const
 {
 	if (percent < 0
 		|| percent > 1000)
-		return FALSE;
+		return false;
 
 	int rand = myrand(0, 1000);
-	if (percent > rand)
-		return TRUE;
-
-	return FALSE;
+	return (percent > rand);
 }
 
 void CUser::RecvEditBox(char* pBuf)
@@ -12401,10 +12557,10 @@ fail_return:
 	memset(m_strCouponId, 0, sizeof(m_strCouponId));
 }
 
-BOOL CUser::CheckCouponUsed()
+bool CUser::CheckCouponUsed() const
 {
 	// 이것은 기술지원 필요함 ㅠ.ㅠ
-	return TRUE;
+	return true;
 }
 
 void CUser::LogCoupon(int itemid, int count)
@@ -12458,33 +12614,88 @@ void CUser::CouponEvent(char* pBuf)
 	Send(send_buff, send_index);
 }
 
-BOOL CUser::CheckItemCount(int itemid, short min, short max)
+bool CUser::CheckItemCount(int itemid, short min, short max) const
 {
 	// This checks if such an item exists.
 	model::Item* pTable = m_pMain->m_ItemTableMap.GetData(itemid);
 	if (pTable == nullptr)
-		return FALSE;
+		return false;
 
-	// Check every slot in this case.....
-	for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+	// Scan the inventory (exclude equipped items).
+	for (int i = SLOT_MAX; i < SLOT_MAX + HAVE_MAX; i++)
 	{
 		if (m_pUserData->m_sItemArray[i].nNum != itemid)
 			continue;
 
 		// Non-countable item.
-		// Let's return false in this case.
 		if (pTable->Countable == 0)
-			return FALSE;
+		{
+			// Caller expected some quantity.
+			// We do have an item already, it's just not stackable, so we should allow it.
+			if (min != 0 || max != 0)
+				return true;
+
+			// This is somewhat of a special case since the item does exist, but this effectively
+			// just restores the old behaviour where non-stackable items always failed this check.
+			// In this case, it only fails when the caller doesn't ask for a specific quantity.
+			return false;
+		}
 
 		// Countable items. Make sure the amount is within the range.
 		if (m_pUserData->m_sItemArray[i].sCount < min
 			|| m_pUserData->m_sItemArray[i].sCount > max)
-			return FALSE;
+		{
+			// This check is a bit wonky, but it's official behaviour.
+			// If the min check failed, the stack size is negative, which is clearly a bad case and
+			// we can fail.
+			// Otherwise, it's probably just intending to detect a misconfiguration here; the caller
+			// typically expects to supply 0 for both min and max at the same time, so it exceeding
+			// the max (implying non-zero) but having a min of 0 seems like a misconfiguration.
+			// At least, that's my best guess for this scenario.
+			if (min == 0)
+				return false;
 
-		return TRUE;
+			// Only bother to enforce the max check if the caller specified it.
+			// Otherwise, it should be ignored.
+			if (max != 0)
+				return false;
+		}
+
+		return true;
 	}
 
-	return FALSE;
+	// Item not found in inventory
+	// Succeed only if we essentially don't require any to exist.
+	if (min == 0
+		|| max == 0)
+		return true;
+
+	// Player doesn't have any; caller expected some quantity.
+	return false;
+}
+
+bool CUser::CheckClanGrade(int min, int max) const
+{
+	if (m_pUserData->m_bKnights == 0)
+		return false;
+
+	CKnights* pKnights = m_pMain->m_KnightsMap.GetData(m_pUserData->m_bKnights);
+	if (pKnights == nullptr)
+		return false;
+
+	if (pKnights->m_byGrade < min || pKnights->m_byGrade > max)
+		return false;
+
+	return true;
+}
+
+bool CUser::CheckKnight() const
+{
+	CKnights* pKnights = m_pMain->GetKnightsPtr(m_pUserData->m_bKnights);
+	if (pKnights == nullptr)
+		return false;
+
+	return (pKnights->m_byFlag == KNIGHTS_TYPE);
 }
 
 void CUser::SaveComEvent(int eventid)
@@ -12499,15 +12710,15 @@ void CUser::SaveComEvent(int eventid)
 	}
 }
 
-BOOL CUser::ExistComEvent(int eventid)
+bool CUser::ExistComEvent(int eventid) const
 {
 	for (int i = 0; i < MAX_CURRENT_EVENT; i++)
 	{
 		if (m_sEvent[i] == eventid)
-			return TRUE;
+			return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 void CUser::RecvDeleteChar(char* pBuf)
@@ -12703,7 +12914,7 @@ void CUser::GameStart(
 
 #if 0 // TODO
 		if (bRecastSavedMagic)
-			ItemMallMagicRecast(FALSE);
+			ItemMallMagicRecast(false);
 #endif
 	}
 }
@@ -12733,12 +12944,12 @@ void CUser::RecvZoneChange(char* pBuf)
 		{
 #if 0 // TODO:
 			BlinkStart();
-			ItemMallMagicRecast(FALSE);
+			ItemMallMagicRecast(false);
 #endif
 		}
 		else
 		{
-			m_bZoneChangeSameZone = FALSE;
+			m_bZoneChangeSameZone = false;
 		}
 	}
 }
@@ -12751,4 +12962,101 @@ int16_t CUser::GetCurrentWeightForClient() const
 int16_t CUser::GetMaxWeightForClient() const
 {
 	return std::min(m_iMaxWeight, SHRT_MAX);
+}
+
+void CUser::SetZoneAbilityChange(int zone)
+{
+	constexpr int16_t TARIFF_BASE = 10;
+
+	char send_buff[128];
+	int send_index = 0;
+	bool bCanTradeWithOtherNation = false, bCanTalkToOtherNation = false;
+	uint8_t byZoneAbilityType = ZONE_ABILITY_NEUTRAL;
+	int16_t sTariff = TARIFF_BASE;
+
+	SetByte(send_buff, WIZ_ZONEABILITY, send_index);
+	SetByte(send_buff, ZONE_ABILITY_UPDATE, send_index);
+
+	if (zone == ZONE_MORADON)
+	{
+		bCanTradeWithOtherNation = true;
+		byZoneAbilityType = ZONE_ABILITY_NEUTRAL;
+		bCanTalkToOtherNation = true;
+	}
+	else if ((zone / 10) == 5
+		&& zone != ZONE_CAITHAROS_ARENA)
+	{
+		bCanTradeWithOtherNation = true;
+		byZoneAbilityType = ZONE_ABILITY_NEUTRAL;
+		bCanTalkToOtherNation = true;
+	}
+	else
+	{
+		switch (zone)
+		{
+			case ZONE_ARENA:
+				bCanTradeWithOtherNation = false;
+				byZoneAbilityType = ZONE_ABILITY_NEUTRAL;
+				bCanTalkToOtherNation = true;
+				break;
+
+			case ZONE_CAITHAROS_ARENA:
+				bCanTradeWithOtherNation = false;
+				byZoneAbilityType = ZONE_ABILITY_CAITHAROS_ARENA;
+				bCanTalkToOtherNation = true;
+				break;
+
+			case ZONE_DESPERATION_ABYSS:
+			case ZONE_HELL_ABYSS:
+				bCanTradeWithOtherNation = false;
+				byZoneAbilityType = ZONE_ABILITY_PVP_NEUTRAL_NPCS;
+				bCanTalkToOtherNation = true;
+				break;
+
+			case ZONE_FRONTIER:
+				bCanTradeWithOtherNation = false;
+				byZoneAbilityType = ZONE_ABILITY_PVP;
+				bCanTalkToOtherNation = false;
+				sTariff = TARIFF_BASE + 10;
+				break;
+
+			case ZONE_DELOS:
+				bCanTradeWithOtherNation = true;
+				byZoneAbilityType = ZONE_ABILITY_SIEGE_DISABLED;
+				bCanTalkToOtherNation = true;
+				break;
+
+			default:
+				bCanTradeWithOtherNation = false;
+				byZoneAbilityType = ZONE_ABILITY_PVP;
+				bCanTalkToOtherNation = false;
+				break;
+		}
+	}
+
+	SetByte(send_buff, bCanTradeWithOtherNation, send_index);
+	SetByte(send_buff, byZoneAbilityType, send_index);
+	SetByte(send_buff, bCanTalkToOtherNation, send_index);
+	SetShort(send_buff, sTariff, send_index);
+	Send(send_buff, send_index);
+}
+
+bool CUser::CheckMiddleStatueCapture() const
+{
+	uint8_t lastCapturedNation;
+	switch (m_pUserData->m_bNation)
+	{
+		case KARUS:
+			lastCapturedNation = m_pMain->_elmoradInvasionMonumentLastCapturedNation[INVASION_MONUMENT_DODA];
+			break;
+
+		case ELMORAD:
+			lastCapturedNation = m_pMain->_karusInvasionMonumentLastCapturedNation[INVASION_MONUMENT_DODA];
+			break;
+
+		default:
+			return false;
+	}
+
+	return lastCapturedNation == m_pUserData->m_bNation;
 }
