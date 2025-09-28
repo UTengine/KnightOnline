@@ -152,7 +152,7 @@ void CUser::Attack(int sid, int tid)
 		nFinalDamage = USER_DAMAGE_OVERRIDE_TEST_MODE;	// sungyong test
 
 	// Calculate Target HP	 -------------------------------------------------------//
-	short sOldNpcHP = pNpc->m_iHP;
+	int16_t sOldNpcHP = pNpc->m_iHP;
 
 	// Npc가 죽은 경우,,
 	if (!pNpc->SetDamage(0, nFinalDamage, m_strUserID, m_iUserId + USER_BAND, m_pIocport))
@@ -173,11 +173,11 @@ void CUser::Attack(int sid, int tid)
 	//	m_dwLastAttackTime = GetTickCount();
 }
 
-void CUser::SendAttackSuccess(int tuid, BYTE result, short sDamage, int nHP, uint8_t byAttackType)
+void CUser::SendAttackSuccess(int tuid, uint8_t result, int16_t sDamage, int nHP, uint8_t byAttackType)
 {
 	int send_index = 0;
 	int sid = -1, tid = -1;
-	BYTE type, bResult;
+	uint8_t type, bResult;
 	char buff[256] = {};
 	float rx = 0.0f, ry = 0.0f, rz = 0.0f;
 
@@ -200,11 +200,11 @@ void CUser::SendAttackSuccess(int tuid, BYTE result, short sDamage, int nHP, uin
 	SendAll(buff, send_index);   // thread 에서 send
 }
 
-void CUser::SendMagicAttackResult(int tuid, BYTE result, short sDamage, short sHP)
+void CUser::SendMagicAttackResult(int tuid, uint8_t result, int16_t sDamage, int16_t sHP)
 {
 	int send_index = 0;
 	int sid = -1, tid = -1;
-	BYTE type, bResult;
+	uint8_t type, bResult;
 	char buff[256] = {};
 	float rx = 0.0f, ry = 0.0f, rz = 0.0f;
 
@@ -274,9 +274,9 @@ void CUser::SetDamage(int damage, int tid)
 	if (m_bLive == USER_DEAD)
 		return;
 
-	short sHP = m_sHP;
+	int16_t sHP = m_sHP;
 
-	m_sHP -= (short) damage;
+	m_sHP -= (int16_t) damage;
 
 	//TRACE(_T("User - SetDamage() : old=%d, damage=%d, curHP = %d, id=%hs, uid=%d\n"), sHP, damage, m_sHP, m_strUserID, m_iUserId);
 
@@ -330,7 +330,7 @@ void CUser::Dead(int tid, int nDamage)
 
 	int send_index = 0;
 	int sid = -1, targid = -1;
-	BYTE type, result;
+	uint8_t type, result;
 	char buff[256] = {};
 	memset(buff, 0, sizeof(buff));
 	spdlog::debug("User::Dead: userId={} charId={}", m_iUserId, m_strUserID);
@@ -501,14 +501,14 @@ void CUser::SendExp(int iExp, int iLoyalty, int tType)
 	SendAll(buff, send_index);
 }
 
-short CUser::GetDamage(int tid, int magicid)
+int16_t CUser::GetDamage(int tid, int magicid)
 {
-	short damage = 0;
+	int16_t damage = 0;
 	float Attack = 0, Avoid = 0;
-	short Hit = 0, HitB = 0;
-	short Ac = 0;
+	int16_t Hit = 0, HitB = 0;
+	int16_t Ac = 0;
 	int random = 0;
-	BYTE result = FAIL;
+	uint8_t result = FAIL;
 
 	model::Magic* pTable = nullptr;
 	model::MagicType1* pType1 = nullptr;
@@ -531,8 +531,8 @@ short CUser::GetDamage(int tid, int magicid)
 	Attack = (float) m_fHitrate;						// 공격민첩
 	Avoid = (float) pNpc->m_sEvadeRate;					// 방어민첩	
 	Hit = m_sHitDamage;									// 공격자 Hit 
-//	Ac = (short) (pNpc->m_sDefense) + pNpc->m_sLevel;	// 방어자 Ac 2002.07.06
-	Ac = (short) (pNpc->m_sDefense);					// 방어자 Ac 
+//	Ac = (int16_t) (pNpc->m_sDefense) + pNpc->m_sLevel;	// 방어자 Ac 2002.07.06
+	Ac = (int16_t) (pNpc->m_sDefense);					// 방어자 Ac 
 	HitB = (int) ((Hit * 200) / (Ac + 240));			// 새로운 공격식의 B
 
 	// Skill Hit.
@@ -577,7 +577,7 @@ short CUser::GetDamage(int tid, int magicid)
 				Hit = HitB * (pType1->DamageMod / 100.0f);
 			}
 */
-			Hit = static_cast<short>(HitB * (pType1->DamageMod / 100.0f));
+			Hit = static_cast<int16_t>(HitB * (pType1->DamageMod / 100.0f));
 		}
 		// ARROW HIT!
 		else if (pTable->Type1 == 2)
@@ -608,12 +608,12 @@ short CUser::GetDamage(int tid, int magicid)
 			if (pType2->HitType == 1
 				/*|| pType2->HitType == 2*/)
 			{
-				Hit = static_cast<short>(m_sHitDamage * (pType2->DamageMod / 100.0f));
+				Hit = static_cast<int16_t>(m_sHitDamage * (pType2->DamageMod / 100.0f));
 			}
 			else
 			{
 //				Hit = (m_sHitDamage - pNpc->m_sDefense) * (pType2->DamageMod / 100.0f);
-				Hit = static_cast<short>(HitB * (pType2->DamageMod / 100.0f));
+				Hit = static_cast<int16_t>(HitB * (pType2->DamageMod / 100.0f));
 			}
 		}
 	}
@@ -631,24 +631,24 @@ short CUser::GetDamage(int tid, int magicid)
 			// 스킬 공격
 			if (magicid > 0)
 			{
-				damage = (short) Hit;
+				damage = (int16_t) Hit;
 				random = myrand(0, damage);
-//				damage = (short) ((0.85f * (float) Hit) + 0.3f * (float) random);
+//				damage = (int16_t) ((0.85f * (float) Hit) + 0.3f * (float) random);
 				if (pTable->Type1 == 1)
 				{
-					damage = (short) ((float) Hit + 0.3f * (float) random + 0.99);
+					damage = (int16_t) ((float) Hit + 0.3f * (float) random + 0.99);
 				}
 				else
 				{
-					damage = (short) ((float) (Hit * 0.6f) + 1.0f * (float) random + 0.99);
+					damage = (int16_t) ((float) (Hit * 0.6f) + 1.0f * (float) random + 0.99);
 				}
 			}
 			//일반 공격	
 			else
 			{
-				damage = (short) (HitB);
+				damage = (int16_t) (HitB);
 				random = myrand(0, damage);
-				damage = (short) ((0.85f * (float) HitB) + 0.3f * (float) random);
+				damage = (int16_t) ((0.85f * (float) HitB) + 0.3f * (float) random);
 			}
 			break;
 
@@ -663,9 +663,9 @@ short CUser::GetDamage(int tid, int magicid)
 	return damage;
 }
 
-short CUser::GetMagicDamage(int damage, short tid)
+int16_t CUser::GetMagicDamage(int damage, int16_t tid)
 {
-	short total_r = 0, temp_damage = 0;
+	int16_t total_r = 0, temp_damage = 0;
 
 	CNpc* pNpc = m_pMain->m_NpcMap.GetData(tid - NPC_BAND);
 	if (pNpc == nullptr)
@@ -765,9 +765,9 @@ short CUser::GetMagicDamage(int damage, short tid)
 	return damage;
 }
 
-BYTE CUser::GetHitRate(float rate)
+uint8_t CUser::GetHitRate(float rate)
 {
-	BYTE result = FAIL;
+	uint8_t result = FAIL;
 	int random = myrand(1, 10000);
 
 	if (rate >= 5.0f)
@@ -883,7 +883,7 @@ BYTE CUser::GetHitRate(float rate)
 }
 
 
-void CUser::SendSystemMsg(const std::string_view msg, BYTE type, int nWho)
+void CUser::SendSystemMsg(const std::string_view msg, uint8_t type, int nWho)
 {
 	int send_index = 0;
 	char buff[1024] = {};

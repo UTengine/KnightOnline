@@ -362,13 +362,13 @@ void MAP::LoadMapTile(HANDLE hFile)
 	int x1 = m_sizeMap.cx;
 	int z1 = m_sizeMap.cy;
 	DWORD dwNum;
-	short** pEvent = new short* [m_sizeMap.cx];
+	int16_t** pEvent = new int16_t* [m_sizeMap.cx];
 
 	// 잠시 막아놓고..
 	for (int x = 0; x < m_sizeMap.cx; x++)
 	{
-		pEvent[x] = new short[m_sizeMap.cx];
-		ReadFile(hFile, pEvent[x], sizeof(short) * m_sizeMap.cy, &dwNum, nullptr);
+		pEvent[x] = new int16_t[m_sizeMap.cx];
+		ReadFile(hFile, pEvent[x], sizeof(int16_t) * m_sizeMap.cy, &dwNum, nullptr);
 	}
 
 	m_pMap = new CMapInfo* [m_sizeMap.cx];
@@ -381,7 +381,7 @@ void MAP::LoadMapTile(HANDLE hFile)
 	{
 		for (int j = 0; j < m_sizeMap.cx; j++)
 		{
-			m_pMap[j][i].m_sEvent = (short) pEvent[j][i];
+			m_pMap[j][i].m_sEvent = (int16_t) pEvent[j][i];
 
 			// NOTE: The SMDs don't have the correct data.
 			// Since we can't trust their data, we must assume every tile is movable.
@@ -506,7 +506,7 @@ bool MAP::LoadRoomEvent(int zone_number)
 {
 	CString		filename;
 	CFile		pFile;
-	BYTE		byte;
+	uint8_t		byte;
 	char		buf[4096];
 	char		first[1024];
 	char		temp[1024];
@@ -558,7 +558,7 @@ bool MAP::LoadRoomEvent(int zone_number)
 			if (index <= 1)
 				continue;
 
-			buf[index] = (BYTE) 0;
+			buf[index] = (uint8_t) 0;
 			t_index = 0;
 
 			// 주석에 대한 처리

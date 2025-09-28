@@ -101,14 +101,14 @@ public:
 	void Send_CommandChat(char* pBuf, int len, int nation, CUser* pExceptUser = nullptr);
 	bool LoadBattleTable();
 	void Send_UDP_All(char* pBuf, int len, int group_type = 0);
-	void KickOutZoneUsers(short zone);
+	void KickOutZoneUsers(int16_t zone);
 	int64_t GenerateItemSerial();
 	void KickOutAllUsers();
 	void CheckAliveUser();
 	int GetKnightsGrade(int nPoints);
 	void WritePacketLog();
-	void MarketBBSSellDelete(short index);
-	void MarketBBSBuyDelete(short index);
+	void MarketBBSSellDelete(int16_t index);
+	void MarketBBSBuyDelete(int16_t index);
 	void MarketBBSTimeCheck();
 	int  GetKnightsAllMembers(int knightsindex, char* temp_buff, int& buff_index, int type = 0);
 	bool LoadKnightsSiegeWarfareTable();
@@ -117,7 +117,7 @@ public:
 	bool LoadStartPositionTable();
 	bool LoadServerResourceTable();
 	bool LoadHomeTable();
-	void Announcement(BYTE type, int nation = 0, int chat_type = 8);
+	void Announcement(uint8_t type, int nation = 0, int chat_type = 8);
 	void ResetBattleZone();
 	void BanishLosers();
 	void BattleZoneVictoryCheck();
@@ -199,7 +199,7 @@ public:
 	HANDLE	m_hMMFile;
 	char*	m_lpMMFile;
 	bool	m_bMMFCreate;
-	DWORD	m_ServerOffset;
+	uint32_t	m_ServerOffset;
 
 	char	m_ppNotice[20][128];
 	char	m_AIServerIP[20];

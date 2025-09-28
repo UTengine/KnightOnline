@@ -271,7 +271,7 @@ inline void CNpc::InitTarget()
 
 void CNpc::Load(const model::Npc* pNpcTable, bool transformSpeeds)
 {
-	constexpr short MONSTER_SPEED = 1500;
+	constexpr int16_t MONSTER_SPEED = 1500;
 
 	_ASSERT(pNpcTable != nullptr);
 
@@ -1363,8 +1363,8 @@ bool CNpc::RandomMove()
 		// 처음위치로 돌아가도록...
 		if (m_iPattenFrame == 0)
 		{
-			m_pPattenPos.x = (short) m_nInitX;
-			m_pPattenPos.z = (short) m_nInitZ;
+			m_pPattenPos.x = (int16_t) m_nInitX;
+			m_pPattenPos.z = (int16_t) m_nInitZ;
 		}
 
 		random_x = myrand(3, 7);
@@ -3553,9 +3553,9 @@ int CNpc::Attack(CIOCPort* pIOCP)
 				SetDWORD(buff, m_iMagic2, send_index);			// Area Magic
 				SetShort(buff, m_sNid + NPC_BAND, send_index);
 				SetShort(buff, -1, send_index);					// tid는 반드시 -1
-				SetShort(buff, (short) m_fCurX, send_index);	// target point
-				SetShort(buff, (short) m_fCurY, send_index);
-				SetShort(buff, (short) m_fCurZ, send_index);
+				SetShort(buff, (int16_t) m_fCurX, send_index);	// target point
+				SetShort(buff, (int16_t) m_fCurY, send_index);
+				SetShort(buff, (int16_t) m_fCurZ, send_index);
 				SetShort(buff, 0, send_index);
 				SetShort(buff, 0, send_index);
 				SetShort(buff, 0, send_index);
@@ -4085,13 +4085,13 @@ void CNpc::MoveAttack(CIOCPort* pIOCP)
 
 int CNpc::GetNFinalDamage(CNpc* pNpc)
 {
-	short damage = 0;
+	int16_t damage = 0;
 	float Attack = 0;
 	float Avoid = 0;
-	short Hit = 0;
-	short Ac = 0;
+	int16_t Hit = 0;
+	int16_t Ac = 0;
 	int random = 0;
-	BYTE result;
+	uint8_t result;
 
 	if (pNpc == nullptr)
 		return damage;
@@ -4106,7 +4106,7 @@ int CNpc::GetNFinalDamage(CNpc* pNpc)
 	Hit = m_sDamage;
 
 	// 방어자 Ac 
-	Ac = (short) pNpc->m_sDefense;
+	Ac = (int16_t) pNpc->m_sDefense;
 
 	// 타격비 구하기
 	result = GetHitRate(Attack / Avoid);
@@ -4114,17 +4114,17 @@ int CNpc::GetNFinalDamage(CNpc* pNpc)
 	switch (result)
 	{
 //		case GREAT_SUCCESS:
-//			damage = (short)(0.6 * (2 * Hit));
+//			damage = (int16_t)(0.6 * (2 * Hit));
 //			if(damage <= 0){
 //				damage = 0;
 //				break;
 //			}
 //			damage = myrand(0, damage);
-//			damage += (short)(0.7 * (2 * Hit));
+//			damage += (int16_t)(0.7 * (2 * Hit));
 //			break;
 
 		case GREAT_SUCCESS:
-			damage = (short) (0.6 * Hit);
+			damage = (int16_t) (0.6 * Hit);
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4132,14 +4132,14 @@ int CNpc::GetNFinalDamage(CNpc* pNpc)
 			}
 
 			damage = myrand(0, damage);
-			damage += (short) (0.7 * Hit);
+			damage += (int16_t) (0.7 * Hit);
 			break;
 
 		case SUCCESS:
 		case NORMAL:
 			if (Hit - Ac > 0)
 			{
-				damage = (short) (0.6 * (Hit - Ac));
+				damage = (int16_t) (0.6 * (Hit - Ac));
 				if (damage <= 0)
 				{
 					damage = 0;
@@ -4147,7 +4147,7 @@ int CNpc::GetNFinalDamage(CNpc* pNpc)
 				}
 
 				damage = myrand(0, damage);
-				damage += (short) (0.7 * (Hit - Ac));
+				damage += (int16_t) (0.7 * (Hit - Ac));
 			}
 			else
 			{
@@ -4266,14 +4266,14 @@ bool CNpc::ResetPath()
 
 int CNpc::GetFinalDamage(CUser* pUser, int type)
 {
-	short damage = 0;
+	int16_t damage = 0;
 	float Attack = 0;
 	float Avoid = 0;
-	short Hit = 0;
-	short Ac = 0;
-	short HitB = 0;
+	int16_t Hit = 0;
+	int16_t Ac = 0;
+	int16_t HitB = 0;
 	int random = 0;
-	BYTE result;
+	uint8_t result;
 
 	if (pUser == nullptr)
 		return damage;
@@ -4281,15 +4281,15 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 	Attack = (float) m_sHitRate;								// 공격민첩
 	Avoid = (float) pUser->m_fAvoidrate;						// 방어민첩	
 	Hit = m_sDamage;											// 공격자 Hit 		
-//	Ac = (short) pUser->m_sAC;									// 방어자 Ac 
+//	Ac = (int16_t) pUser->m_sAC;									// 방어자 Ac 
 
-//	Ac = (short) pUser->m_sItemAC + (short) pUser->m_byLevel;	// 방어자 Ac 
-//	Ac = (short) pUser->m_sAC - (short) pUser->m_byLevel;		// 방어자 Ac. 잉...성래씨 미워 ㅜ.ㅜ
-	Ac = (short) pUser->m_sItemAC + (short) pUser->m_byLevel + (short) (pUser->m_sAC - pUser->m_byLevel - pUser->m_sItemAC);
+//	Ac = (int16_t) pUser->m_sItemAC + (int16_t) pUser->m_byLevel;	// 방어자 Ac 
+//	Ac = (int16_t) pUser->m_sAC - (int16_t) pUser->m_byLevel;		// 방어자 Ac. 잉...성래씨 미워 ㅜ.ㅜ
+	Ac = (int16_t) pUser->m_sItemAC + (int16_t) pUser->m_byLevel + (int16_t) (pUser->m_sAC - pUser->m_byLevel - pUser->m_sItemAC);
 
 //	ASSERT(Ac != 0);
-//	short kk = (short) pUser->m_sItemAC;
-//	short tt = (short) pUser->m_byLevel;
+//	int16_t kk = (int16_t) pUser->m_sItemAC;
+//	int16_t tt = (int16_t) pUser->m_byLevel;
 //	Ac = kk + tt;
 
 	HitB = (int) ((Hit * 200) / (Ac + 240));
@@ -4305,19 +4305,19 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 	{
 		case GREAT_SUCCESS:
 	/*
-			damage = (short)(0.6 * (2 * Hit));
+			damage = (int16_t)(0.6 * (2 * Hit));
 			if(damage <= 0){
 				damage = 0;
 				break;
 			}
 			damage = myrand(0, damage);
-			damage += (short)(0.7 * (2 * Hit));
+			damage += (int16_t)(0.7 * (2 * Hit));
 			break;
 	*/
 	//		damage = 0;
 	//		break;
 
-			damage = (short) HitB;
+			damage = (int16_t) HitB;
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4325,14 +4325,14 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = (int) (0.3f * myrand(0, damage));
-			damage += (short) (0.85f * (float) HitB);
+			damage += (int16_t) (0.85f * (float) HitB);
 	//		damage = damage * 2;
 			damage = (damage * 3) / 2;
 			break;
 
 		case SUCCESS:
 	/*
-			damage = (short) (0.6f * Hit);
+			damage = (int16_t) (0.6f * Hit);
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4340,11 +4340,11 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = myrand(0, damage);
-			damage += (short) (0.7f * Hit);
+			damage += (int16_t) (0.7f * Hit);
 			break;
 	*/
 	/*
-			damage = (short) (0.3f * (float) HitB);
+			damage = (int16_t) (0.3f * (float) HitB);
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4352,10 +4352,10 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = myrand(0, damage);
-			damage += (short) (0.85f * (float) HitB);
+			damage += (int16_t) (0.85f * (float) HitB);
 	*/
 	/*
-			damage = (short) HitB;
+			damage = (int16_t) HitB;
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4363,7 +4363,7 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = (int) (0.3f * myrand(0, damage));
-			damage += (short) (0.85f * (float)HitB);
+			damage += (int16_t) (0.85f * (float)HitB);
 			damage = damage * 2;
 
 			break;
@@ -4372,7 +4372,7 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			/*
 			if (Hit - Ac > 0)
 			{
-				damage = (short) (0.6f * (Hit - Ac));
+				damage = (int16_t) (0.6f * (Hit - Ac));
 				if (damage <= 0)
 				{
 					damage = 0;
@@ -4380,7 +4380,7 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 				}
 
 				damage = myrand(0, damage);
-				damage += (short)(0.7f * (Hit - Ac));
+				damage += (int16_t)(0.7f * (Hit - Ac));
 			}
 			else
 			{
@@ -4388,7 +4388,7 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 			*/
 	/*
-			damage = (short) (0.3f * (float) HitB);
+			damage = (int16_t) (0.3f * (float) HitB);
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4396,9 +4396,9 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = myrand(0, damage);
-			damage += (short) (0.85f * (float) HitB);
+			damage += (int16_t) (0.85f * (float) HitB);
 	*/
-			damage = (short) HitB;
+			damage = (int16_t) HitB;
 			if (damage <= 0)
 			{
 				damage = 0;
@@ -4406,7 +4406,7 @@ int CNpc::GetFinalDamage(CUser* pUser, int type)
 			}
 
 			damage = (int) (0.3f * myrand(0, damage));
-			damage += (short) (0.85f * (float) HitB);
+			damage += (int16_t) (0.85f * (float) HitB);
 			break;
 
 		case FAIL:
@@ -5549,7 +5549,7 @@ void CNpc::FindFriendRegion(int x, int z, MAP* pMap, _TargetHealer* pHealer, int
 	pNpcIDList = nullptr;
 }
 
-void CNpc::NpcStrategy(BYTE type)
+void CNpc::NpcStrategy(uint8_t type)
 {
 	switch (type)
 	{
@@ -5562,7 +5562,7 @@ void CNpc::NpcStrategy(BYTE type)
 }
 
 //	NPC 정보를 버퍼에 저장한다.
-void CNpc::FillNpcInfo(char* temp_send, int& index, BYTE flag)
+void CNpc::FillNpcInfo(char* temp_send, int& index, uint8_t flag)
 {
 	SetByte(temp_send, AG_NPC_INFO, index);
 	if (m_bySpecialType == 5 && m_byChangeType == 0)
@@ -5579,7 +5579,7 @@ void CNpc::FillNpcInfo(char* temp_send, int& index, BYTE flag)
 	SetShort(temp_send, m_ZoneIndex, index);
 	SetVarString(temp_send, m_strName.c_str(), static_cast<int>(m_strName.length()), index);
 	SetByte(temp_send, m_byGroup, index);
-	SetByte(temp_send, (BYTE) m_sLevel, index);
+	SetByte(temp_send, (uint8_t) m_sLevel, index);
 	Setfloat(temp_send, m_fCurX, index);
 	Setfloat(temp_send, m_fCurZ, index);
 	Setfloat(temp_send, m_fCurY, index);
@@ -5618,7 +5618,7 @@ void CNpc::SendNpcInfoAll(char* temp_send, int& index, int count)
 	SetShort(temp_send, m_ZoneIndex, index);
 	SetVarString(temp_send, m_strName.c_str(), static_cast<int>(m_strName.length()), index);
 	SetByte(temp_send, m_byGroup, index);
-	SetByte(temp_send, (BYTE) m_sLevel, index);
+	SetByte(temp_send, (uint8_t) m_sLevel, index);
 	Setfloat(temp_send, m_fCurX, index);
 	Setfloat(temp_send, m_fCurZ, index);
 	Setfloat(temp_send, m_fCurY, index);
@@ -5956,11 +5956,11 @@ bool CNpc::GetUserInViewRange(int x, int z)
 	return false;
 }
 
-void CNpc::SendAttackSuccess(CIOCPort* pIOCP, BYTE byResult, int tuid, short sDamage, int nHP, BYTE byFlag, uint8_t byAttackType)
+void CNpc::SendAttackSuccess(CIOCPort* pIOCP, uint8_t byResult, int tuid, int16_t sDamage, int nHP, uint8_t byFlag, uint8_t byAttackType)
 {
 	int send_index = 0;
 	int sid = -1, tid = -1;
-	BYTE type, result = 0;
+	uint8_t type, result = 0;
 	char buff[256] = {};
 	float rx = 0.0f, ry = 0.0f, rz = 0.0f;
 
@@ -6052,9 +6052,9 @@ void CNpc::IsUserInSight()
 	}
 }
 
-BYTE CNpc::GetHitRate(float rate)
+uint8_t CNpc::GetHitRate(float rate)
 {
-	BYTE result = FAIL;
+	uint8_t result = FAIL;
 	int random = myrand(1, 10000);
 
 	if (rate >= 5.0f)
@@ -6419,7 +6419,7 @@ void CNpc::GiveNpcHaveItem(CIOCPort* pIOCP)
 		m_GiveItemList[0].sSid = TYPE_MONEY_SID;
 		if (iMoney > 32767)
 		{
-			iMoney = 32000;						// sungyong : short형이기 때문에,,
+			iMoney = 32000;						// sungyong : int16_t형이기 때문에,,
 			m_GiveItemList[0].count = iMoney;
 		}
 		else
@@ -6499,8 +6499,8 @@ void CNpc::GiveNpcHaveItem(CIOCPort* pIOCP)
 	SetShort(pBuf, m_sMaxDamageUserid, index);
 	SetShort(pBuf, m_sNid + NPC_BAND, index);
 	SetShort(pBuf, m_sCurZone, index);
-	SetShort(pBuf, (short) m_iRegion_X, index);
-	SetShort(pBuf, (short) m_iRegion_Z, index);
+	SetShort(pBuf, (int16_t) m_iRegion_X, index);
+	SetShort(pBuf, (int16_t) m_iRegion_Z, index);
 	Setfloat(pBuf, m_fCurX, index);
 	Setfloat(pBuf, m_fCurZ, index);
 	Setfloat(pBuf, m_fCurY, index);

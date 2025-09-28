@@ -27,9 +27,9 @@ UINT NpcThreadProc(LPVOID pParam /* NPC_THREAD_INFO ptr */)
 	CPoint				pt;
 
 	int					i			= 0;
-	DWORD				dwDiffTime	= 0;
-	DWORD				dwSleep		= 250;
-	DWORD				dwTickTime	= 0;
+	uint32_t			dwDiffTime	= 0;
+	uint32_t			dwSleep		= 250;
+	uint32_t			dwTickTime	= 0;
 	srand((unsigned int) time(nullptr));
 	myrand(1, 10000);
 	myrand(1, 10000);
