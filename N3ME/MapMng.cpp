@@ -32,6 +32,7 @@
 #include "ProgressBar.h"
 #include "SoundMgr.h"
 #include "LightObjMgr.h"
+#include "N3Base/N3FXBundle.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -2215,12 +2216,50 @@ void CMapMng::LoadObjectPostData(LPCTSTR lpszFileName)
 			__Quaternion qtRot; qtRot.Identity();
 			
 			fgets(szLine, 1024, stream);
-			sscanf(szLine, "FileName[ %s ] PartCount[ %d ] Position[ %f %f %f] Rotation[ %f %f %f %f ] Scale[ %f %f %f ] Belong [ %d ] Attribute [ %d %d %d %d ]\n",
+			int n = sscanf(szLine, "FileName[ %s ] PartCount[ %d ] Position[ %f %f %f] Rotation[ %f %f %f %f ] Scale[ %f %f %f ] Belong [ %d ] Attribute [ %d %d %d %d ]\n",
 					szSFN, &iSPC, 
 					&(vPos.x), &(vPos.y), &(vPos.z),
 					&(qtRot.x), &(qtRot.y), &(qtRot.z), &(qtRot.w), 
 					&(vScale.x), &(vScale.y), &(vScale.z), 
 					&(iBelong), &(iEventID), &(iEventType), &(iNPC_ID), &(iNPC_Status) );
+
+			if (n != 17)
+			{
+				char msg[1024];
+				sprintf(msg, "Failed to parse line (got %d/15):\n%s", n, szLine);
+				MessageBoxA(nullptr, msg, "Parse Error", MB_ICONERROR | MB_OK);
+			}
+
+			char szEffectFN[MAX_PATH] = ""; // TCHAR szEffectFN[_MAX_PATH + 1] = {}; Credits to Twostars anyway..
+			__Vector3 vEffectPos(0, 0, 0);
+			float fEffectScale = 0;
+			__Quaternion qtEffectRot; qtEffectRot.Identity();
+
+			fgets(szLine, 1024, stream);
+
+			n = sscanf(szLine, "FXB FileName[ %s ] Offset Position[ %f %f %f ] Scale[ %f ] Rotation[ %f %f %f %f ]\n",
+				szEffectFN,
+				&vEffectPos.x, &vEffectPos.y, &vEffectPos.z,
+				&fEffectScale,
+				&qtEffectRot.x, &qtEffectRot.y, &qtEffectRot.z, &qtEffectRot.w);
+
+			if (n != 9)
+			{
+				char msg[1024];
+				sprintf(msg, "Failed to parse line (got %d/9):\n%s", n, szLine);
+				MessageBoxA(nullptr, "Failed to parse FXB line", "Parse Error", MB_ICONERROR | MB_OK);
+			}
+
+			if (_strnicmp(szEffectFN, "empty", 5) == 0)
+			{
+				// Do nothing
+			}
+			else
+			{
+				pShape->SetFXB(szEffectFN, vEffectPos, qtEffectRot, fEffectScale);
+					// FXB 파일에서 읽고.. FXB Set and Read File…
+			}
+
 			// 텍스트에 Shape 파일 이름을 쓴다..
 			wsprintf(szSFN2, "Object\\%s", szSFN);
 			pShape->LoadFromFile(szSFN2); // 파일에서 읽고..
@@ -2231,9 +2270,20 @@ void CMapMng::LoadObjectPostData(LPCTSTR lpszFileName)
 				CN3SPart* pPart = pShape->Part(j);
 				if(pPart)
 				{
-					sscanf(szLine, "\tPart - DiffuseARGB[ %f %f %f %f ] AmbientARGB[ %f %f %f %f ]\n",
-							&(pPart->m_Mtl.Diffuse.a), &(pPart->m_Mtl.Diffuse.r), &(pPart->m_Mtl.Diffuse.g), &(pPart->m_Mtl.Diffuse.b),
-							&(pPart->m_Mtl.Ambient.a), &(pPart->m_Mtl.Ambient.r), &(pPart->m_Mtl.Ambient.g), &(pPart->m_Mtl.Ambient.b) );
+					n = sscanf(szLine,
+						"\tOB1Part - DiffuseARGB[ %f %f %f %f ] AmbientARGB[ %f %f %f %f ] RenderState[ %d %d %d %d %d %d ]\n",
+						&pPart->m_Mtl.Diffuse.a, &pPart->m_Mtl.Diffuse.r, &pPart->m_Mtl.Diffuse.g, &pPart->m_Mtl.Diffuse.b,
+						&pPart->m_Mtl.Ambient.a, &pPart->m_Mtl.Ambient.r, &pPart->m_Mtl.Ambient.g, &pPart->m_Mtl.Ambient.b,
+						&pPart->m_Mtl.nRenderFlags, &pPart->m_Mtl.dwSrcBlend, &pPart->m_Mtl.dwDestBlend,
+						&pPart->m_Mtl.dwColorOp, &pPart->m_Mtl.dwColorArg1, &pPart->m_Mtl.dwColorArg2
+					);
+
+					if (n != 14)
+					{
+						char msg[512];
+						sprintf(msg, "Failed to parse OB1Part line (got %d/14):\n%s", n, szLine);
+						MessageBoxA(nullptr, msg, "Parse Error", MB_ICONERROR | MB_OK);
+					}
 				}
 			}
 			

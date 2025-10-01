@@ -14,7 +14,7 @@
 #include "N3TransformCollision.h"
 #include "N3PMeshInstance.h"
 #include "N3Texture.h"
-
+#include "N3FXBundle.h"
 #include <vector>
 
 typedef std::vector<CN3Texture*> it_pTex;
@@ -125,6 +125,11 @@ public:
 
 	std::vector<CN3SPart*>	m_Parts; // Part Data Pointer Linked List
 
+	CN3FXBundle* m_pFXB;
+	__Vector3 m_vFXBOffsetPos;
+	float m_fFXBScale;
+	__Quaternion m_qFXBRot;
+
 public:
 #ifdef _N3TOOL
 	bool			SaveToSameFolderAndMore(const std::string& szFullPath, const std::string& szRelativePath);
@@ -136,6 +141,10 @@ public:
 	int				CheckCollisionPrecisely(bool bIgnoreBoxCheck, const __Vector3& vPos, const __Vector3& vDir, __Vector3* pVCol = nullptr, __Vector3* pVNormal = nullptr); // 정밀하게 폴리곤 단위로 체크 - 먼저 박스 체크후 다시 정밀 체크..
 	bool			MakeCollisionMeshByParts();  // 충돌 메시를 박스 형태로 다시 만든다...
 	bool			MakeCollisionMeshByPartsDetail();  // 현재 모습 그대로... 충돌 메시를 만든다...
+
+	void			SetFXB(const std::string& strFN, const __Vector3& vOffsetPos, const __Quaternion& qRot, float fScale);
+	void			TickFX();
+	void			RenderFX();
 
 	void			FindMinMax();
 	virtual void	ReCalcMatrix();

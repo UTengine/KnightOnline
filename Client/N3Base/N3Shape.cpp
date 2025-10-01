@@ -514,10 +514,13 @@ CN3Shape::CN3Shape()
 	m_iEventType = 0; // Event Type
 	m_iNPC_ID = 0;  // NPC 로 쓰는 오브젝트일 경우 NPC ID
 	m_iNPC_Status = 0; // NPC 로 쓰는 오브젝트일 경우 NPC Status
+	m_pFXB = nullptr;
+	m_fFXBScale = 1.0f;
 }
 
 CN3Shape::~CN3Shape()
 {
+	delete m_pFXB;
 	int iPC = m_Parts.size();
 	for(int i = 0; i < iPC; i++) delete m_Parts[i];
 	m_Parts.clear();
@@ -525,6 +528,8 @@ CN3Shape::~CN3Shape()
 
 void CN3Shape::Release()
 {
+	delete m_pFXB;
+	m_pFXB = nullptr;
 	m_bDontRender = false;
 	m_bVisible = true;
 	
@@ -1033,7 +1038,7 @@ bool CN3Shape::SaveToSameFolder(const std::string& szFullPath)
 	int i;
 	for(i = szFullPath.size() - 1; i >= 0; i--)
 	{
-		if('\\' == szPath[i] || '/' == szPath[i])
+		if ('\\' == szPath[i] || '/' == szPath[i])
 		{
 			szPath = szPath.substr(0, i+1);
 			break;
@@ -1114,7 +1119,7 @@ bool CN3Shape::SaveToSameFolderAndMore(const std::string& szFullPath, const std:
 	int i;
 	for(i = szFullPath.size() - 1; i >= 0; i--)
 	{
-		if('\\' == szPath[i] || '/' == szPath[i])
+		if ('\\' == szPath[i] || '/' == szPath[i])
 		{
 			szPath = szPath.substr(0, i+1);
 			break;
@@ -1174,7 +1179,7 @@ bool CN3Shape::SaveToSameFolderAndMore(const std::string& szFullPath, const std:
 //
 void CN3Shape::SetMaxLOD()
 {
-	m_bDontRender = false;	
+	m_bDontRender = false;
 
 	for (auto itr = m_Parts.begin(); itr != m_Parts.end(); ++itr)
 	{
@@ -1250,3 +1255,60 @@ void CN3Shape::PartialGetCollision(int iIndex, __Vector3& vec)
 
 //	~(By Ecli666 On 2002-08-06 오후 4:33:32 )
 
+// FX Bundle...	N3TOOL N3ME
+void CN3Shape::SetFXB(const std::string& strFN, const __Vector3& vOffsetPos, const __Quaternion& qRot, float fScale)
+{
+	if (m_pFXB)
+	{
+		delete m_pFXB;
+		m_pFXB = nullptr;
+	}
+
+	if (strFN.empty())
+	{
+		return;
+	}
+
+	m_pFXB = new CN3FXBundle();
+	if (false == m_pFXB->LoadFromFile(strFN.c_str()))
+	{
+		delete m_pFXB;
+		m_pFXB = nullptr;
+		return;
+	}
+
+	m_vFXBOffsetPos = vOffsetPos;
+	m_qFXBRot = qRot;
+	m_fFXBScale = fScale;
+
+	m_pFXB->Init();
+	m_pFXB->Trigger();
+}
+
+void CN3Shape::TickFX()
+{
+	if (m_pFXB)
+	{
+		__Matrix44 mtxWorld;
+		mtxWorld.Scale(m_fFXBScale, m_fFXBScale, m_fFXBScale);
+		mtxWorld *= m_Matrix;
+
+		__Matrix44 mtxRot;
+		mtxRot.Rotation(m_qFXBRot.x, m_qFXBRot.y, m_qFXBRot.z);
+
+		__Matrix44 mtxFinal = mtxRot * mtxWorld;
+		mtxFinal.PosSet(mtxWorld.Pos() + m_vFXBOffsetPos);
+
+		m_pFXB->m_vPos = mtxFinal.Pos();
+		m_pFXB->Tick();
+	}
+}
+
+void CN3Shape::RenderFX()
+{
+	if (m_pFXB)
+	{
+		m_pFXB->Render();
+	}
+}
+// FX Bundle...	N3TOOL N3ME

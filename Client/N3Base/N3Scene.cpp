@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 #include "StdAfxBase.h"
 #include "N3Scene.h"
+#include "N3Base\N3Shape.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
@@ -241,7 +242,10 @@ void CN3Scene::Render()
 	s_lpD3DDev->SetRenderState(D3DRS_AMBIENT, m_AmbientLightColor);
 
 	for (CN3Shape* shape : m_Shapes)
+	{ 
 		shape->Render();
+		shape->RenderFX();
+	}
 
 	for (CN3Chr* chr : m_Chrs)
 		chr->Render();
@@ -265,6 +269,10 @@ void CN3Scene::Tick(float fFrm)
 	TickCameras(m_fFrmCur);
 	TickLights(m_fFrmCur);
 	TickShapes(m_fFrmCur);
+	for (CN3Shape* shape : m_Shapes)
+	{
+		shape->TickFX();
+	}
 	TickChrs(m_fFrmCur);
 }
 
